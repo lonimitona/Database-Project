@@ -1,11 +1,13 @@
 # -----------------------------------------------------------------------------
 # <Assignment.r>
 # <Database Project>/<Scientific Computing and Healthcare>
-# <R Script>/<15/03/2022>
+# <R Script>/<15/02/2022>
 # <Student ID>/<2149508>
 # <Rcode/RStudio Project>
 # <Copyright/2149508>
 # -----------------------------------------------------------------------------
+#Access Tidyverse library
+library(tidyverse)
 
 #Make sure the RPostgreSQL package is available.
 library("RPostgreSQL")
@@ -18,47 +20,48 @@ con <- dbConnect(drv, dbname = "gp_practice_data",
                  host = "localhost", port = 5432,
                  user = "postgres", password = rstudioapi::askForPassword())
 
-#Access Tidyverse library
-library(tidyverse)
+
 
 library(GetoptLong)
 
-#Load tables and assign them to variables
 address <- dbGetQuery(con, "
     select * from address
     ")
-
-gp_data_up_to_2015 <- dbGetQuery(con, "
-    select * from gp_data_up_to_2015
-    ")
-
-qof_achievement <- dbGetQuery(con, "
-    select * from qof_achievement
-    ")
-
-qof_indicator <- dbGetQuery(con, "
-    select * from qof_indicator
-    ")
-
-(bnf <- dbGetQuery(con, "
-    select * from bnf
-    "))
-
-(chemsubstance <- dbGetQuery(con, "
-    select * from chemsubstance
-    "))
-
+address
 
 #Questions - PART 1
 #user to select practice
-choose_practice <- readline('user select practice ') 
+choose_practice <- readline('Select Practice ID: ') 
 
 user_practice <- dbGetQuery(con, paste("
     select * from address
-    where practiceid = '" , choose_practice, "'   ", sep=""))
+    where practiceid = '" , choose_practice, "'   ", sep="
+    "))
 user_practice
 
-user_practice <- dbGetQuery(con, qq("
+#Checking that user practice entry is correct
+check <- dbGetQuery(con, "
+    select practiceid
+    from address
+    where practiceid like 'W%'
+    ")
+check
+
+
+user_entry <- sample_n(check, 1)
+user_entry
+
+
+if (is.na(user_entry)){
+  stop('This is not a Practice ID!\n')
+} else {
+  print('user_practice')
+}
+
+
+
+
+--user_practice <- dbGetQuery(con, qq("
     select * from address
     where practiceid = '@{choose_practice}'   " ))
 user_practice
@@ -310,3 +313,14 @@ rate_of_metformin <- dbGetQuery(con, "
 
 
 #PART 2
+
+
+
+
+# Close the connection and unload the drivers.
+dbDisconnect(con)
+dbUnloadDriver(drv)
+
+cat('\nEnd of analysis. Thank you for using 2149508\'s code.\n',
+    'For support, please contact 2149508 on\n',
+    '2149508@swansea.ac.uk.')
