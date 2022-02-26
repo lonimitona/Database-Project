@@ -1,0 +1,312 @@
+# -----------------------------------------------------------------------------
+# <Assignment.r>
+# <Database Project>/<Scientific Computing and Healthcare>
+# <R Script>/<15/03/2022>
+# <Student ID>/<2149508>
+# <Rcode/RStudio Project>
+# <Copyright/2149508>
+# -----------------------------------------------------------------------------
+
+#Make sure the RPostgreSQL package is available.
+library("RPostgreSQL")
+
+#Specify what driver is needed to connect to the database.
+drv = dbDriver("PostgreSQL")
+
+#Connect to the database for the assignment.
+con <- dbConnect(drv, dbname = "gp_practice_data", 
+                 host = "localhost", port = 5432,
+                 user = "postgres", password = rstudioapi::askForPassword())
+
+#Access Tidyverse library
+library(tidyverse)
+
+library(GetoptLong)
+
+#Load tables and assign them to variables
+address <- dbGetQuery(con, "
+    select * from address
+    ")
+
+gp_data_up_to_2015 <- dbGetQuery(con, "
+    select * from gp_data_up_to_2015
+    ")
+
+qof_achievement <- dbGetQuery(con, "
+    select * from qof_achievement
+    ")
+
+qof_indicator <- dbGetQuery(con, "
+    select * from qof_indicator
+    ")
+
+(bnf <- dbGetQuery(con, "
+    select * from bnf
+    "))
+
+(chemsubstance <- dbGetQuery(con, "
+    select * from chemsubstance
+    "))
+
+
+#Questions - PART 1
+#user to select practice
+choose_practice <- readline('user select practice ') 
+
+user_practice <- dbGetQuery(con, paste("
+    select * from address
+    where practiceid = '" , choose_practice, "'   ", sep=""))
+user_practice
+
+user_practice <- dbGetQuery(con, qq("
+    select * from address
+    where practiceid = '@{choose_practice}'   " ))
+user_practice
+
+
+#Q1(a) check if practice has medication information available
+user_practice_med_info <- dbGetQuery(con, "
+    select bnfcode, bnfname, practiceid
+    from gp_data_up_to_2015
+    where practiceid = 'W92041'
+    ")
+user_practice_med_info
+
+
+#Q1(b) check if practice has QOF Data available
+user_practice_qof_info <- dbGetQuery(con, "
+    select * from qof_achievement
+    where orgcode ='W92041'
+    ")
+user_practice_qof_info
+
+
+#Q1(ci) Calculate no of patients at Practice
+no_of_patients <- dbGetQuery(con, "
+    select orgcode as practiceid, max(field4) as no_of_patients 
+    from qof_achievement
+    group by practiceid
+    ")
+no_of_patients
+
+
+#Q1(cii) Calculate average cost spent per month on medication at the practice
+average_cost <- dbGetQuery(con, "
+    select period as month, avg (actcost) as average_cost 
+    from gp_data_up_to_2015
+    where practiceid ='W92041'
+    group by month
+    ")
+average_cost
+
+
+# Q1(ciii) Calculate cost of medication per patient compared with practices  
+#in same postcode
+
+# This is a step by step process because information needed is in different 
+#tables.
+#Get cost of medication, group year to shorten data frame and match
+#qof_achievement data frame
+cost_of_meds_table <- dbGetQuery(con, "
+    select practiceid, (period/100) as year, 
+    (actcost*quantity) as total_cost_meds
+    from gp_data_up_to_2015
+    limit 100
+    ")
+cost_of_meds_table
+
+cost_of_meds_table <- dbGetQuery(con, "
+    select practiceid, 
+    sum(actcost*quantity) as total_cost_meds
+    from gp_data_up_to_2015
+    group by practiceid
+    ")
+cost_of_meds_table
+
+
+
+#Calculate cost of medication per patient
+cost_per_patient <- dbGetQuery(con, "
+    select qof.orgcode, sum(com.total_cost_meds) / 
+    sum(qof.field4) as amt_per_patient 
+    from  cost_of_meds_table as com
+    inner join qof_achievement as qof
+    on com.practiceid = qof.orgcode
+    group by qof.orgcode
+    ")
+
+#Round up result figures to 1 decimal place
+cost_meds_per_patient <- dbGetQuery(con, "
+    select orgcode, round(cast (amt_per_patient as numeric), 1) as 
+       amt_per_patient
+    from cost_per_patient
+    ")
+
+
+#Compare with other practices in same postcode area
+meds_per_patient_same_postcode <- dbGetQuery(con, "
+    select a.practiceid, street, cmpp.amt_per_patient, postcode 
+    from address as a
+    inner join cost_meds_per_patient as cmpp
+    on a.practiceid = cmpp.practiceid
+    where postcode like 'SA%'
+    ")
+meds_per_patient_same_postcode
+
+
+#Visualization showing cost of medication per patient compared to other
+#practices within same postcode area
+mppsp <- meds_per_patient_same_postcode
+
+ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient, 
+                                   fill= practiceid == 'W92041')) +
+  geom_col(width = 1) +
+  geom_text(aes(label=amt_per_patient), vjust = 1.5) +
+  coord_flip()
+
+ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient, 
+                                   fill= practiceid == 'W92041')) +
+  geom_bar(stat = 'identity') +
+  geom_text(aes(label=amt_per_patient), vjust = -0.2) +
+  coord_flip()
+
+ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient)) +
+  geom_col() +
+  scale_fill_manual(values = c('W92041' = 'blue'))
+
+rlang::last_error()
+?geom_bar
+
+#1c(iv) rate of Diabetes = no of patients with Diabetes at practice / 
+#total no of patients at the practice
+
+#Get the denominator
+total_patient_pop_practice <- dbGetQuery(con, "
+    select orgcode, sum(field4)as pop_per_practice
+    from qof_achievement
+    group by orgcode
+    ")
+total_patient_pop_practice
+
+
+#Get the numerator
+total_pop_diabetes_practice <- dbGetQuery(con, "
+    select orgcode, sum(field4)as pop_with_diabetes
+    from qof_achievement
+    where indicator like 'DM%'
+    group by orgcode
+    ")
+
+
+#Calculate the rate of diabetes per practice
+rate_diabetes_practice <- dbGetQuery(con, "
+    select tpdp.orgcode, 
+       cast(tpdp.pop_with_diabetes as float) / 
+       cast(tppp.pop_per_practice as float) as rate_diabetes
+    from total_pop_diabetes_practice as tpdp
+    inner join total_patient_pop_practice as tppp
+    on tpdp.orgcode = tppp.orgcode;
+    ")
+
+#Round up result figures to 1 decimal place
+rate_diabetes_per_patient <- dbGetQuery(con, "
+    select orgcode, round(cast (rate_diabetes as numeric), 1) as 
+       rate_diabetes
+    from rate_diabetes_practice;
+    ")
+
+#Report rate of diabetes at Practice
+
+#Visualize rate of Diabetes at Practice compared to other Practices
+
+
+#2(i) Compare rate of diabetes and rate of insulin prescription 
+#at practice level
+#bnfcode for insulin medications start with identical 6 digits
+#rate of insulin prescription = total no of insulin prescriptions
+#in the practice / total no of other drug prescriptions in same practice
+
+insulin_medications <- dbGetQuery(con, "
+    select * from gp_data_up_to_2015
+    where bnfcode like '060101%'
+    ")
+insulin_medications
+
+
+#Calculate insulin prescriptions per practice
+ins_prescription_per_practice <- dbGetQuery(con, "
+    select practiceid, sum(quantity) as no_of_insulin_prescriptions
+    from gp_data_up_to_2015 as gp
+    where bnfcode like '060101%'
+    group by practiceid
+    ")
+
+
+#Calculate total number of prescriptions per practice
+total_drugs_per_practice <- dbGetQuery(con, "
+    select practiceid, sum(quantity) as total_drugs_prescribed
+    from gp_data_up_to_2015 
+    group by practiceid
+    ")
+
+
+#Calculate rate of insulin prescription
+rate_insulin_prescription <- dbGetQuery(con, "
+    select ippp.practiceid, 
+      cast(ippp.no_of_insulin_prescriptions as float) / 
+      cast(tdpp.total_drugs_prescribed as float) as rate_insulin_prescription
+    from ins_prescription_per_practice as ippp
+    inner join total_drugs_per_practice as tdpp
+    on ippp.practiceid = tdpp.practiceid
+    ")
+
+#Round up result figures to 1 decimal place
+rate_of_insulin <- dbGetQuery(con, "
+    select practiceid, round(cast (rate_insulin_prescription as numeric), 1) as 
+       rate_of_insulin
+    from rate_insulin_prescription
+    ")
+
+#Compare rate of Diabetes and rate of insulin prescription
+
+
+#2(ii) Rate of Diabetes and rate of Metformin prescription
+#rate of Metformin prescription = total no of metformin prescriptions
+#in the practice / total no of other drug prescriptions in same practice
+metformin_medications <- dbGetQuery(con, "
+    select * from gp_data_up_to_2015
+    where lower (bnfname) like 'metformin%' 
+    ")
+
+
+#Calculate metformin prescription per practice
+met_prescription_per_practice <- dbGetQuery(con, "
+    select practiceid, sum(quantity) as no_of_met_prescriptions
+    from gp_data_up_to_2015 as gp
+    where lower (bnfname) like 'metformin%'
+    group by practiceid
+    ")
+
+
+#Calculate rate of metformin prescription
+rate_metformin_prescription <- dbGetQuery(con, "
+    select mppp.practiceid, 
+       cast(mppp.no_of_met_prescriptions as float) / 
+       cast(tdpp.total_drugs_prescribed as float) as rate_metformin_prescription
+    from met_prescription_per_practice as mppp
+    inner join total_drugs_per_practice as tdpp
+    on mppp.practiceid = tdpp.practiceid
+    ")
+
+#Round up result figures to 1 decimal place
+rate_of_metformin <- dbGetQuery(con, "
+    select practiceid, round(cast (rate_metformin_prescription as numeric), 1) as 
+       rate_of_metformin
+    from rate_metformin_prescription
+    ")
+
+#Compare rate of Diabetes and rate of Metformin prescription
+
+
+
+#PART 2
