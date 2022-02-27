@@ -84,20 +84,17 @@ if (user_entry==TRUE){
 
 
 #Q1(a) check if practice has medication information available
-user_practice_med_info <- dbGetQuery(con, "
+med_info <- dbGetQuery(con, qq('
     select bnfcode, bnfname, practiceid
     from gp_data_up_to_2015
-    where practiceid = 'W92041'
-    ")
-user_practice_med_info
-
+    where practiceid = \'@{user_practice_id}\''))
+med_info
 
 #Q1(b) check if practice has QOF Data available
-user_practice_qof_info <- dbGetQuery(con, "
+qof_info <- dbGetQuery(con, qq('
     select * from qof_achievement
-    where orgcode ='W92041'
-    ")
-user_practice_qof_info
+    where orgcode = \'@{user_practice_id}\''))
+qof_info
 
 
 #Q1(ci) Calculate no of patients at Practice
