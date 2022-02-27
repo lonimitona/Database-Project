@@ -55,9 +55,9 @@ gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 choose_practice <- readline('Select Practice ID: ') 
 
 user_practice <- dbGetQuery(con, qq('
-    select * from gp_data_up_to_2015
+    select * from address
     where practiceid = \'@{choose_practice}\''))
-
+user_practice
 
 #Checking that user practice entry is correct
 check <- dbGetQuery(con, "
@@ -75,26 +75,32 @@ user_entry
 user_entry <- str_detect(user_entry,'^W[0-9]{5}$')
 user_entry
 
-if (user_entry==TRUE){
+if (is.na(user_entry)){
+    stop('This is not a Practice ID!\n')
+}   else {
     print('user_practice')
-} else {
-    stop('This is not a valid Practice ID!\n')
 }
-    
+
+
+
+
 
 
 #Q1(a) check if practice has medication information available
-med_info <- dbGetQuery(con, qq('
+user_practice_med_info <- dbGetQuery(con, "
     select bnfcode, bnfname, practiceid
     from gp_data_up_to_2015
-    where practiceid = \'@{user_practice_id}\''))
-med_info
+    where practiceid = 'W92041'
+    ")
+user_practice_med_info
+
 
 #Q1(b) check if practice has QOF Data available
-qof_info <- dbGetQuery(con, qq('
+user_practice_qof_info <- dbGetQuery(con, "
     select * from qof_achievement
-    where orgcode = \'@{user_practice_id}\''))
-qof_info
+    where orgcode ='W92041'
+    ")
+user_practice_qof_info
 
 
 #Q1(ci) Calculate no of patients at Practice
