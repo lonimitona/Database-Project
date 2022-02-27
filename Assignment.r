@@ -6,11 +6,14 @@
 # <Rcode/RStudio Project>
 # <Copyright/2149508>
 # -----------------------------------------------------------------------------
+#Make sure the RPostgreSQL package is available.
+library("RPostgreSQL")
+
 #Access Tidyverse library
 library(tidyverse)
 
-#Make sure the RPostgreSQL package is available.
-library("RPostgreSQL")
+# For 'qq()' which allows substitution of vars in strings.
+library(GetoptLong)
 
 #Specify what driver is needed to connect to the database.
 drv = dbDriver("PostgreSQL")
@@ -20,18 +23,41 @@ con <- dbConnect(drv, dbname = "gp_practice_data",
                  host = "localhost", port = 5432,
                  user = "postgres", password = rstudioapi::askForPassword())
 
+# Confirm connection to database by displaying the available tables.
+cat('The following tables are available:\n')
+print(dbListTables(con))
+cat('\n')
 
+# Get the list of columns in the database tables by creating the get_columns function.
+get_columns <- function(table) {
+    columns <- dbGetQuery(con,
+                        qq('select column_name as name, ordinal_position as position,
+           data_type as type, character_maximum_length as length,
+           numeric_precision as precision
+    from information_schema.columns
+    where table_schema = \'public\' and
+          table_name = \'@{table}\';'))
+  cat('\nThe table', table, 'has the following structure:\n', sep=' ')
+  print(columns)
+  return(columns)
+}
 
-library(GetoptLong)
+#We can now get the columns from tables using the get_columns function
+get_columns('address')
 
-address <- dbGetQuery(con, "
-    select * from address
-    ")
-address
+qof_indicator_columns <- get_columns('qof_indicator')
+
+gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
+
 
 #Questions - PART 1
 #user to select practice
 choose_practice <- readline('Select Practice ID: ') 
+
+user_practice <- dbGetQuery(con, qq("
+    select * from address
+    where practiceid = '@{choose_practice}'   " ))
+user_practice
 
 user_practice <- dbGetQuery(con, paste("
     select * from address
@@ -47,24 +73,23 @@ check <- dbGetQuery(con, "
     ")
 check
 
-
+#for random practiceid entry
 user_entry <- sample_n(check, 1)
 user_entry
 
+#to check that practice id entered follows the uniform pattern
+user_entry <- str_detect(user_entry,'^W[0-9]{5}$')
+user_entry
 
 if (is.na(user_entry)){
-  stop('This is not a Practice ID!\n')
-} else {
-  print('user_practice')
+    stop('This is not a Practice ID!\n')
+}   else {
+    print('user_practice')
 }
 
 
 
 
---user_practice <- dbGetQuery(con, qq("
-    select * from address
-    where practiceid = '@{choose_practice}'   " ))
-user_practice
 
 
 #Q1(a) check if practice has medication information available
