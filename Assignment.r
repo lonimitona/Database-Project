@@ -54,16 +54,10 @@ gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 #user to select practice
 choose_practice <- readline('Select Practice ID: ') 
 
-user_practice <- dbGetQuery(con, qq("
-    select * from address
-    where practiceid = '@{choose_practice}'   " ))
-user_practice
+user_practice <- dbGetQuery(con, qq('
+    select * from gp_data_up_to_2015
+    where practiceid = \'@{choose_practice}\''))
 
-user_practice <- dbGetQuery(con, paste("
-    select * from address
-    where practiceid = '" , choose_practice, "'   ", sep="
-    "))
-user_practice
 
 #Checking that user practice entry is correct
 check <- dbGetQuery(con, "
@@ -81,15 +75,12 @@ user_entry
 user_entry <- str_detect(user_entry,'^W[0-9]{5}$')
 user_entry
 
-if (is.na(user_entry)){
-    stop('This is not a Practice ID!\n')
-}   else {
+if (user_entry==TRUE){
     print('user_practice')
+} else {
+    stop('This is not a valid Practice ID!\n')
 }
-
-
-
-
+    
 
 
 #Q1(a) check if practice has medication information available
