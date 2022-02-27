@@ -75,50 +75,41 @@ user_entry
 user_entry <- str_detect(user_entry,'^W[0-9]{5}$')
 user_entry
 
-if (is.na(user_entry)){
+if (user_entry==TRUE){
+    print(user_practice)
+}   else{
     stop('This is not a Practice ID!\n')
-}   else {
-    print('user_practice')
-}
-
-
-
-
+}   
 
 
 #Q1(a) check if practice has medication information available
-user_practice_med_info <- dbGetQuery(con, "
+med_info <- dbGetQuery(con, qq('
     select bnfcode, bnfname, practiceid
     from gp_data_up_to_2015
-    where practiceid = 'W92041'
-    ")
-user_practice_med_info
+    where practiceid = \'@{choose_practice}\''))
+med_info
 
 
 #Q1(b) check if practice has QOF Data available
-user_practice_qof_info <- dbGetQuery(con, "
+qof_info <- dbGetQuery(con, qq('
     select * from qof_achievement
-    where orgcode ='W92041'
-    ")
-user_practice_qof_info
+    where orgcode = \'@{choose_practice}\''))
+qof_info
 
 
 #Q1(ci) Calculate no of patients at Practice
-no_of_patients <- dbGetQuery(con, "
+no_of_patients <- dbGetQuery(con, qq('
     select orgcode as practiceid, max(field4) as no_of_patients 
     from qof_achievement
-    group by practiceid
-    ")
+    where practiceid = \'@{choose_practice}\''))
 no_of_patients
 
 
 #Q1(cii) Calculate average cost spent per month on medication at the practice
-average_cost <- dbGetQuery(con, "
-    select period as month, avg (actcost) as average_cost 
+average_cost <- dbGetQuery(con, qq('
+    select period as month, sum (actcost) / no_of_patients as average_cost 
     from gp_data_up_to_2015
-    where practiceid ='W92041'
-    group by month
-    ")
+    where practiceid = \'@{choose_practice}\''))
 average_cost
 
 
