@@ -54,25 +54,13 @@ gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 #user to select practice
 choose_practice <- readline('Select Practice ID: ') 
 
-user_practice <- dbGetQuery(con, qq('
+user_practice <- dbGetQuery(con, qq("
     select * from address
-    where practiceid = \'@{choose_practice}\''))
+    where practiceid = \'@{choose_practice}\'"))
 user_practice
 
-#Checking that user practice entry is correct
-check <- dbGetQuery(con, "
-    select practiceid
-    from address
-    where practiceid like 'W%'
-    ")
-check
-
-#for random practiceid entry
-user_entry <- sample_n(check, 1)
-user_entry
-
 #to check that practice id entered follows the uniform pattern
-user_entry <- str_detect(user_entry,'^W[0-9]{5}$')
+user_entry <- str_detect(choose_practice,'^W[0-9]{5}$')
 user_entry
 
 if (user_entry==TRUE){
@@ -81,13 +69,29 @@ if (user_entry==TRUE){
     stop('This is not a Practice ID!\n')
 }   
 
+#Create function for practiceid entry
+input_practiceid <- function() {
+    user_entry <- FALSE
+    while(user_entry == FALSE){
+    choose_practice <- readline('Select Practice ID: ')
+    user_entry <- str_detect(choose_practice,'^W[0-9]{5}$')
+    if (user_entry==TRUE){
+        print(user_practice)
+    }else{
+        print('This is not a Practice ID')
+        print('Enter Practice ID starting with W')
+      } 
+    }
+    return(choose_practice)
+}
+input_practiceid()
 
 #Q1(a) check if practice has medication information available
-med_info <- dbGetQuery(con, qq('
+med_info <- dbGetQuery(con, qq("
     select bnfcode, bnfname, practiceid
     from gp_data_up_to_2015
-    where practiceid = \'@{choose_practice}\''))
-med_info
+    where practiceid = \'@{choose_practice}\'"))
+typmed_info
 
 
 #Q1(b) check if practice has QOF Data available
