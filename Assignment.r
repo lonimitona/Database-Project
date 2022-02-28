@@ -85,13 +85,12 @@ input_practiceid <- function() {
     return(choose_practice)
 }
 input_practiceid()
-
 #Q1(a) check if practice has medication information available
 med_info <- dbGetQuery(con, qq("
     select bnfcode, bnfname, practiceid
     from gp_data_up_to_2015
     where practiceid = \'@{choose_practice}\'"))
-typmed_info
+med_info
 
 
 #Q1(b) check if practice has QOF Data available
