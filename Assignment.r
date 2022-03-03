@@ -47,6 +47,8 @@ get_columns('address')
 
 qof_indicator_columns <- get_columns('qof_indicator')
 
+qof_achievement_columns <- get_columns('qof_achievement')
+
 gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 
 
@@ -54,9 +56,9 @@ gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 #user to select practice
 choose_practice <- readline('Select Practice ID: ') 
 
-user_practice <- dbGetQuery(con, qq("
+user_practice <- dbGetQuery(con, qq('
     select * from address
-    where practiceid = \'@{choose_practice}\'"))
+    where practiceid = \'@{choose_practice}\''))
 user_practice
 
 #to check that practice id entered follows the uniform pattern
@@ -71,25 +73,26 @@ if (user_entry==TRUE){
 
 #Create function for practiceid entry
 input_practiceid <- function() {
-    user_entry <- FALSE
-    while(user_entry == FALSE){
+  user_entry <- FALSE
+  while(user_entry == FALSE){
     choose_practice <- readline('Select Practice ID: ')
     user_entry <- str_detect(choose_practice,'^W[0-9]{5}$')
     if (user_entry==TRUE){
-        print(user_practice)
+      print(user_practice)
     }else{
-        print('This is not a Practice ID')
-        print('Enter Practice ID starting with W')
-      } 
-    }
-    return(choose_practice)
+      cat('\nThis is not a Practice ID.')
+      cat('\nEnter Practice ID starting with W:\n')
+    } 
+  }
+  return(choose_practice)
 }
 input_practiceid()
+
 #Q1(a) check if practice has medication information available
-med_info <- dbGetQuery(con, qq("
+med_info <- dbGetQuery(con, qq('
     select bnfcode, bnfname, practiceid
     from gp_data_up_to_2015
-    where practiceid = \'@{choose_practice}\'"))
+    where practiceid = \'@{choose_practice}\''))
 med_info
 
 
@@ -106,6 +109,9 @@ no_of_patients <- dbGetQuery(con, qq('
     from qof_achievement
     where practiceid = \'@{choose_practice}\''))
 no_of_patients
+
+no_of_patients <- qof_info %>% rename(practicid=orgcode, no_of_patients=field4)
+
 
 
 #Q1(cii) Calculate average cost spent per month on medication at the practice
@@ -132,10 +138,11 @@ cost_of_meds_table <- dbGetQuery(con, "
 cost_of_meds_table
 
 cost_of_meds_table <- dbGetQuery(con, "
-    select practiceid, 
-    sum(actcost*quantity) as total_cost_meds
+    select practiceid, (period/100) as year, 
+    actcost as total_cost_meds
     from gp_data_up_to_2015
-    group by practiceid
+    group by year
+    limit 100
     ")
 cost_of_meds_table
 
