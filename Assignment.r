@@ -54,19 +54,19 @@ gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 
 #Questions - PART 1
 #user to select practice
-choose_practice <- readline('Select Practice ID: ') 
+chosen_practiceid <- readline('Select Practice ID: ') 
 
-user_practice <- dbGetQuery(con, qq('
+chosen_practice_address <- dbGetQuery(con, qq('
     select * from address
-    where practiceid = \'@{choose_practice}\''))
-user_practice
+    where practiceid = \'@{chosen_practiceid}\''))
+chosen_practice_address
 
-#to check that practice id entered follows the uniform pattern
-user_entry <- str_detect(choose_practice,'^W[0-9]{5}$')
+#to check that practice id Chosen by user follows the uniform pattern
+user_entry <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
 user_entry
 
 if (user_entry==TRUE){
-    print(user_practice)
+    print(chosen_practice_address)
 }   else{
     stop('This is not a Practice ID!\n')
 }   
@@ -75,30 +75,31 @@ if (user_entry==TRUE){
 input_practiceid <- function() {
   user_entry <- FALSE
   while(user_entry == FALSE){
-    choose_practice <- readline('Select Practice ID: ')
-    user_entry <- str_detect(choose_practice,'^W[0-9]{5}$')
+    chosen_practiceid <- readline('Select Practice ID: ')
+    user_entry <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
     if (user_entry==TRUE){
-      print(user_practice)
+      print(chosen_practice_address)
     }else{
       cat('\nThis is not a Practice ID.')
       cat('\nEnter Practice ID starting with W:\n')
     } 
   }
-  return(choose_practice)
+  return(chosen_practiceid)
 }
-input_practiceid()
+chosen_practiceid <- input_practiceid()
+
 
 #Q1(a) check if practice has medication information available
 med_info <- dbGetQuery(con, qq('
     select * from gp_data_up_to_2015
-    where practiceid = \'@{choose_practice}\''))
+    where practiceid = \'@{chosen_practiceid}\''))
 med_info
 
 
 #Q1(b) check if practice has QOF Data available
 qof_info <- dbGetQuery(con, qq('
     select * from qof_achievement
-    where orgcode = \'@{choose_practice}\''))
+    where orgcode = \'@{chosen_practiceid}\''))
 qof_info
 
 
@@ -112,7 +113,7 @@ no_of_patients
 average_cost <- dbGetQuery(con, qq('
     select period as month, sum (actcost) / no_of_patients as average_cost 
     from gp_data_up_to_2015
-    where practiceid = \'@{choose_practice}\''))
+    where practiceid = \'@{chosen_practiceid}\''))
 average_cost
 
 average_cost <- med_info %>% rename(month=period)
