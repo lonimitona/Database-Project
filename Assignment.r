@@ -90,8 +90,7 @@ input_practiceid()
 
 #Q1(a) check if practice has medication information available
 med_info <- dbGetQuery(con, qq('
-    select bnfcode, bnfname, practiceid
-    from gp_data_up_to_2015
+    select * from gp_data_up_to_2015
     where practiceid = \'@{choose_practice}\''))
 med_info
 
@@ -104,14 +103,9 @@ qof_info
 
 
 #Q1(ci) Calculate no of patients at Practice
-no_of_patients <- dbGetQuery(con, qq('
-    select orgcode as practiceid, max(field4) as no_of_patients 
-    from qof_achievement
-    where practiceid = \'@{choose_practice}\''))
+no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+  summarise(max=max(no_of_patients))
 no_of_patients
-
-no_of_patients <- qof_info %>% rename(practicid=orgcode, no_of_patients=field4)
-
 
 
 #Q1(cii) Calculate average cost spent per month on medication at the practice
@@ -121,6 +115,7 @@ average_cost <- dbGetQuery(con, qq('
     where practiceid = \'@{choose_practice}\''))
 average_cost
 
+average_cost <- med_info %>% rename(month=period)
 
 # Q1(ciii) Calculate cost of medication per patient compared with practices  
 #in same postcode
