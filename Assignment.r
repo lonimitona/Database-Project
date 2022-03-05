@@ -12,8 +12,12 @@ library("RPostgreSQL")
 #Access Tidyverse library
 library(tidyverse)
 
+library(crayon)     # Used for coloured console text.
+
 # For 'qq()' which allows substitution of vars in strings.
 library(GetoptLong)
+
+library(lubridate)
 
 #Specify what driver is needed to connect to the database.
 drv = dbDriver("PostgreSQL")
@@ -24,7 +28,7 @@ con <- dbConnect(drv, dbname = "gp_practice_data",
                  user = "postgres", password = rstudioapi::askForPassword())
 
 # Confirm connection to database by displaying the available tables.
-cat('The following tables are available:\n')
+cat(green('The following tables are available:\n'))
 print(dbListTables(con))
 cat('\n')
 
@@ -43,7 +47,7 @@ get_columns <- function(table) {
 }
 
 #We can now get the columns from tables using the get_columns function
-get_columns('address')
+address_columns <- get_columns('address')
 
 qof_indicator_columns <- get_columns('qof_indicator')
 
@@ -61,27 +65,21 @@ chosen_practice_address <- dbGetQuery(con, qq('
     where practiceid = \'@{chosen_practiceid}\''))
 chosen_practice_address
 
-#to check that practice id Chosen by user follows the uniform pattern
-user_entry <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
-user_entry
-
-if (user_entry==TRUE){
-    print(chosen_practice_address)
-}   else{
-    stop('This is not a Practice ID!\n')
-}   
+#to check that practice id entered by user follows the uniform pattern
+practiceid_entered <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
+practiceid_entered
 
 #Create function for practiceid entry
 input_practiceid <- function() {
-  user_entry <- FALSE
-  while(user_entry == FALSE){
+  practiceid_entered <- FALSE
+  while(practiceid_entered == FALSE){
     chosen_practiceid <- readline('Select Practice ID: ')
-    user_entry <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
-    if (user_entry==TRUE){
+    practiceid_entered <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
+    if (practiceid_entered==TRUE){
       print(chosen_practice_address)
     }else{
-      cat('\nThis is not a Practice ID.')
-      cat('\nEnter Practice ID starting with W:\n')
+      cat(red('\nThis is not a Practice ID.'))
+      cat(yellow('\nEnter Practice ID starting with W:\n'))
     } 
   }
   return(chosen_practiceid)
@@ -94,7 +92,6 @@ med_info <- dbGetQuery(con, qq('
     select * from gp_data_up_to_2015
     where practiceid = \'@{chosen_practiceid}\''))
 med_info
-
 
 #Q1(b) check if practice has QOF Data available
 qof_info <- dbGetQuery(con, qq('
@@ -109,60 +106,45 @@ no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4)
 no_of_patients
 
 
-#Q1(cii) Calculate average cost spent per month on medication at the practice
-average_cost <- dbGetQuery(con, qq('
-    select period as month, sum (actcost) / no_of_patients as average_cost 
-    from gp_data_up_to_2015
-    where practiceid = \'@{chosen_practiceid}\''))
-average_cost
 
-average_cost <- med_info %>% rename(month=period)
+#Q1(cii) Calculate average amount spent per month on medication at the practice
+# average amount spent on medication = sum (actcost) / no_of_patients
+    
+#Use ymd() from lubridate package to sort the date column
+med_cost <- med_info %>% select(period, actcost) %>% 
+  rename(month=period) %>% mutate(month=ym(month))
+
+#use floor_date() function from lubridate to group month
+med_cpp <- med_cost %>% 
+  group_by(month = lubridate::floor_date(month, "month")) %>%
+  summarize(total_cost_meds = sum(actcost))
+
+#Calculate the average cost
+average_cost <- med_cpp %>% select(month, total_cost_meds) %>% 
+  mutate(avg_cost=total_cost_meds %/% no_of_patients)
+
 
 # Q1(ciii) Calculate cost of medication per patient compared with practices  
 #in same postcode
+#cost of medication per patient = sum(nic) / no_of_patients
+#Use ymd() from lubridate package to sort the date column
+cmpp <- med_info %>% select(period, nic) %>% rename(year=period) %>%
+  mutate(year=ym(year))
 
-# This is a step by step process because information needed is in different 
-#tables.
-#Get cost of medication, group year to shorten data frame and match
-#qof_achievement data frame
-cost_of_meds_table <- dbGetQuery(con, "
-    select practiceid, (period/100) as year, 
-    (actcost*quantity) as total_cost_meds
-    from gp_data_up_to_2015
-    limit 100
-    ")
-cost_of_meds_table
+#use floor_date() function from lubridate to group month
+cmpp <- cmpp %>% 
+  group_by(year = lubridate::floor_date(year, "year")) %>%
+  summarize(total_cost = sum(nic))
 
-cost_of_meds_table <- dbGetQuery(con, "
-    select practiceid, (period/100) as year, 
-    actcost as total_cost_meds
-    from gp_data_up_to_2015
-    group by year
-    limit 100
-    ")
-cost_of_meds_table
-
-
-
-#Calculate cost of medication per patient
-cost_per_patient <- dbGetQuery(con, "
-    select qof.orgcode, sum(com.total_cost_meds) / 
-    sum(qof.field4) as amt_per_patient 
-    from  cost_of_meds_table as com
-    inner join qof_achievement as qof
-    on com.practiceid = qof.orgcode
-    group by qof.orgcode
-    ")
-
-#Round up result figures to 1 decimal place
-cost_meds_per_patient <- dbGetQuery(con, "
-    select orgcode, round(cast (amt_per_patient as numeric), 1) as 
-       amt_per_patient
-    from cost_per_patient
-    ")
+#Calculate the cost of medication per patient
+cmpp <- cmpp %>% select(year, total_cost) %>% 
+  mutate(cost_per_patient=total_cost %/% no_of_patients)
+cmpp
 
 
 #Compare with other practices in same postcode area
+cmpp %>% 
+
 meds_per_patient_same_postcode <- dbGetQuery(con, "
     select a.practiceid, street, cmpp.amt_per_patient, postcode 
     from address as a
