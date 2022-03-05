@@ -86,12 +86,15 @@ input_practiceid <- function() {
 }
 chosen_practiceid <- input_practiceid()
 
+chosen_practiceid <- 'W92041'
 
 #Q1(a) check if practice has medication information available
 med_info <- dbGetQuery(con, qq('
     select * from gp_data_up_to_2015
     where practiceid = \'@{chosen_practiceid}\''))
 med_info
+
+
 
 #Q1(b) check if practice has QOF Data available
 qof_info <- dbGetQuery(con, qq('
@@ -104,6 +107,16 @@ qof_info
 no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
     summarise(max=max(no_of_patients))
 no_of_patients
+
+#Create function to get no of patients
+get_no_of_patients <- function(chosen_practiceid) {
+  qof_info <- dbGetQuery(con, qq('
+    select * from qof_achievement
+    where orgcode = \'@{chosen_practiceid}\''))
+  no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+    summarise(max=max(no_of_patients))
+  return(no_of_patients)
+}
 
 
 
@@ -119,18 +132,45 @@ med_cpp <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) 
     summarize(total_cost_meds = sum(actcost))
 
 #Calculate the average cost
-average_cost <- med_cpp %>% select(month, total_cost_meds) %>% 
-    mutate(avg_cost=total_cost_meds %/% no_of_patients)
+sum_of_meds <- med_cpp %>% summarise(sum(total_cost_meds)) 
 
+no_of_months <- nrow(med_cpp)
+
+avg_cost <- sum_of_meds %/% no_of_months
+
+avg_cost <- avg_cost[[1]]
+avg_cost
+
+no_of_months <- no_of_months[[1]]
+
+avg_cost_meds_per_month <- avg_cost / no_of_months
+
+avg_spend_per_month <- function(practiceid){
+  
+}
 
 # Q1(ciii) Calculate cost of medication per patient compared with practices  
 #in same postcode
 #cost of medication per patient = sum(nic) / no_of_patients
-#Use ymd() from lubridate package to sort the date column
+postcode <- - dbGetQuery(con, "
+    select * from address
+    where postcode like 'SA%'
+    ")
+postcode_sa
+
+med_info <- dbGetQuery(con, qq('
+    select * from gp_data_up_to_2015
+    where practiceid = \'@{postcode_sa}\''))
+med_info
+
+med_info <- dbGetQuery(con, qq('
+    select * from gp_data_up_to_2015
+    where practiceid = \'@{chosen_practiceid}\''))
+med_info
+
 cmpp <- med_info %>% select(period, nic) %>% rename(year=period) %>%
     mutate(year=ym(year))
 
-#use floor_date() function from lubridate to group month
 cmpp <- cmpp %>% group_by(year = lubridate::floor_date(year, "year")) %>%
     summarize(total_cost = sum(nic))
 
@@ -141,7 +181,11 @@ cmpp
 
 
 #Compare with other practices in same postcode area
-cmpp %>% 
+postcode <-  dbGetQuery(con, "
+    select * from address
+    ")
+
+cmpp %>% select(year, cost_per_patient) 
 
 meds_per_patient_same_postcode <- dbGetQuery(con, "
     select a.practiceid, street, cmpp.amt_per_patient, postcode 
@@ -178,6 +222,7 @@ rlang::last_error()
 
 #1c(iv) rate of Diabetes = no of patients with Diabetes at practice / 
 #total no of patients at the practice
+
 
 #Get the denominator
 total_patient_pop_practice <- dbGetQuery(con, "
