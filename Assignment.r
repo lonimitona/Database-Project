@@ -102,7 +102,7 @@ qof_info
 
 #Q1(ci) Calculate no of patients at Practice
 no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
-  summarise(max=max(no_of_patients))
+    summarise(max=max(no_of_patients))
 no_of_patients
 
 
@@ -111,17 +111,16 @@ no_of_patients
 # average amount spent on medication = sum (actcost) / no_of_patients
     
 #Use ymd() from lubridate package to sort the date column
-med_cost <- med_info %>% select(period, actcost) %>% 
-  rename(month=period) %>% mutate(month=ym(month))
+med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
+    mutate(month=ym(month))
 
 #use floor_date() function from lubridate to group month
-med_cpp <- med_cost %>% 
-  group_by(month = lubridate::floor_date(month, "month")) %>%
-  summarize(total_cost_meds = sum(actcost))
+med_cpp <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
+    summarize(total_cost_meds = sum(actcost))
 
 #Calculate the average cost
 average_cost <- med_cpp %>% select(month, total_cost_meds) %>% 
-  mutate(avg_cost=total_cost_meds %/% no_of_patients)
+    mutate(avg_cost=total_cost_meds %/% no_of_patients)
 
 
 # Q1(ciii) Calculate cost of medication per patient compared with practices  
@@ -129,16 +128,15 @@ average_cost <- med_cpp %>% select(month, total_cost_meds) %>%
 #cost of medication per patient = sum(nic) / no_of_patients
 #Use ymd() from lubridate package to sort the date column
 cmpp <- med_info %>% select(period, nic) %>% rename(year=period) %>%
-  mutate(year=ym(year))
+    mutate(year=ym(year))
 
 #use floor_date() function from lubridate to group month
-cmpp <- cmpp %>% 
-  group_by(year = lubridate::floor_date(year, "year")) %>%
-  summarize(total_cost = sum(nic))
+cmpp <- cmpp %>% group_by(year = lubridate::floor_date(year, "year")) %>%
+    summarize(total_cost = sum(nic))
 
 #Calculate the cost of medication per patient
 cmpp <- cmpp %>% select(year, total_cost) %>% 
-  mutate(cost_per_patient=total_cost %/% no_of_patients)
+    mutate(cost_per_patient=total_cost %/% no_of_patients)
 cmpp
 
 
