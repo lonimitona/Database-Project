@@ -145,9 +145,31 @@ no_of_months <- no_of_months[[1]]
 
 avg_cost_meds_per_month <- avg_cost / no_of_months
 
-avg_spend_per_month <- function(practiceid){
+avg_spend_per_month <- function(chosen_practiceid){
+  med_info <- dbGetQuery(con, qq('
+    select * from gp_data_up_to_2015
+    where practiceid = \'@{chosen_practiceid}\''))
   
+  med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
+    mutate(month=ym(month))
+  
+  med_cpp <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
+    summarize(total_cost_meds = sum(actcost))
+  
+  sum_of_meds <- med_cpp %>% summarise(sum(total_cost_meds)) 
+  
+  no_of_months <- nrow(med_cpp)
+  
+  avg_cost <- sum_of_meds %/% no_of_months
+  
+  avg_cost <- avg_cost[[1]]
+  
+  no_of_months <- no_of_months[[1]]
+  
+  avg_cost_meds_per_month <- avg_cost / no_of_months
+  return(avg_cost_meds_per_month)
 }
+avg_spend_per_month('W92041')
 
 # Q1(ciii) Calculate cost of medication per patient compared with practices  
 #in same postcode
@@ -156,7 +178,6 @@ postcode <- - dbGetQuery(con, "
     select * from address
     where postcode like 'SA%'
     ")
-postcode_sa
 
 med_info <- dbGetQuery(con, qq('
     select * from gp_data_up_to_2015
