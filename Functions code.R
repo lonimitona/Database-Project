@@ -91,13 +91,13 @@ get_no_of_patients <- function(chosen_practiceid) {
   qof_info <- dbGetQuery(con, qq('
     select * from qof_achievement
     where orgcode = \'@{chosen_practiceid}\''))
-  no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
-    summarise(max=max(no_of_patients))
+  no_of_patients <- qof_info %>% rename(practiceid=orgcode, 
+    no_of_patients=field4) %>% summarise(max=max(no_of_patients))
   return(no_of_patients)
 }
 
 #Create function to get average cost per month
-avg_spend_per_month <- function(chosen_practiceid){
+get_avg_spend_per_month <- function(chosen_practiceid){
   med_info <- dbGetQuery(con, qq('
     select * from gp_data_up_to_2015
     where practiceid = \'@{chosen_practiceid}\''))
@@ -126,6 +126,7 @@ avg_spend_per_month <- function(chosen_practiceid){
 Question_1 <- function() {
   #accept user input
   correct_practiceid <- input_practiceid()
+  
   #Check if the practice id has medication info available
   if (has_medinfo(correct_practiceid)) {
     print(paste(correct_practiceid, ' has medication information available'))
@@ -134,16 +135,22 @@ Question_1 <- function() {
     print(paste(correct_practiceid, ' does not have medication information available'))
   }
   
+  #Check if the practice id has QOF data available
   if (has_qofinfo(correct_practiceid)) {
     print(paste(correct_practiceid, ' has QOF data available'))
   }
   else{
     print(paste(correct_practiceid, ' does not have QOF data available'))
   }  
+  
+  #If practice has both medication and QOF data, then display information for practice
   if (has_medinfo(correct_practiceid) & has_qofinfo(correct_practiceid)) {
     no_of_patients <- get_no_of_patients(correct_practiceid)
-    print(paste('Number of patients at Practice ', correct_practiceid, 'is ', no_of_patients)) 
-    print(paste('The average spend on medication per month at Practice ', correct_practiceid, 'is ', avg_spend_per_month(correct_practiceid))) 
+    print(paste('Number of patients at Practice ', correct_practiceid, 'is ', 
+                no_of_patients)) 
+    avg_spend_per_month <- get_avg_spend_per_month(correct_practiceid)
+    print(paste('The average spend on medication per month at Practice ', 
+      correct_practiceid, 'is ', get_avg_spend_per_month(correct_practiceid))) 
   }
 }
 Question_1()
