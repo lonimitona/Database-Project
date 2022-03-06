@@ -60,23 +60,18 @@ gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 #user to select practice
 chosen_practiceid <- readline('Select Practice ID: ') 
 
-chosen_practice_address <- dbGetQuery(con, qq('
-    select * from address
-    where practiceid = \'@{chosen_practiceid}\''))
-chosen_practice_address
-
 #to check that practice id entered by user follows the uniform pattern
-practiceid_entered <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
-practiceid_entered
+is_practiceid_valid <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
+is_practiceid_valid
 
 #Create function for practiceid entry
 input_practiceid <- function() {
-  practiceid_entered <- FALSE
-  while(practiceid_entered == FALSE){
+  is_practiceid_valid <- FALSE
+  while(is_practiceid_valid == FALSE){
     chosen_practiceid <- readline('Select Practice ID: ')
-    practiceid_entered <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
-    if (practiceid_entered==TRUE){
-      print(chosen_practice_address)
+    is_practiceid_valid <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
+    if (is_practiceid_valid==TRUE){
+      print('Practice ID entered is correct')
     }else{
       cat(red('\nThis is not a Practice ID.'))
       cat(yellow('\nEnter Practice ID starting with W:\n'))
@@ -121,7 +116,7 @@ get_no_of_patients <- function(chosen_practiceid) {
 
 
 #Q1(cii) Calculate average amount spent per month on medication at the practice
-# average amount spent on medication = sum (actcost) / no_of_patients
+# average amount spent on medication = Total costs / no of months
     
 #Use ymd() from lubridate package to sort the date column
 med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
@@ -131,20 +126,25 @@ med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>%
 med_cpp <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
     summarize(total_cost_meds = sum(actcost))
 
-#Calculate the average cost
+#Calculate the total cost of medication
 sum_of_meds <- med_cpp %>% summarise(sum(total_cost_meds)) 
 
+#To get number of months
 no_of_months <- nrow(med_cpp)
 
+#Calculate total average cost at practice
 avg_cost <- sum_of_meds %/% no_of_months
 
+#To save value as scalar
 avg_cost <- avg_cost[[1]]
 avg_cost
 
 no_of_months <- no_of_months[[1]]
 
+#Calculate average cost per month
 avg_cost_meds_per_month <- avg_cost / no_of_months
 
+#Function
 avg_spend_per_month <- function(chosen_practiceid){
   med_info <- dbGetQuery(con, qq('
     select * from gp_data_up_to_2015
@@ -173,35 +173,25 @@ avg_spend_per_month('W92041')
 
 # Q1(ciii) Calculate cost of medication per patient compared with practices  
 #in same postcode
-#cost of medication per patient = sum(nic) / no_of_patients
-postcode <- - dbGetQuery(con, "
-    select * from address
-    where postcode like 'SA%'
-    ")
-
-med_info <- dbGetQuery(con, qq('
-    select * from gp_data_up_to_2015
-    where practiceid = \'@{postcode_sa}\''))
-med_info
-
-med_info <- dbGetQuery(con, qq('
-    select * from gp_data_up_to_2015
-    where practiceid = \'@{chosen_practiceid}\''))
-med_info
-
-cmpp <- med_info %>% select(period, nic) %>% rename(year=period) %>%
+#cost of medication per patient (cmpp) = sum(nic) / no_of_patients
+#First Calculate for chosen practice
+cmpp <- med_info %>% select(period, nic) %>% rename(year=period) %>% 
     mutate(year=ym(year))
 
 cmpp <- cmpp %>% group_by(year = lubridate::floor_date(year, "year")) %>%
     summarize(total_cost = sum(nic))
 
-#Calculate the cost of medication per patient
-cmpp <- cmpp %>% select(year, total_cost) %>% 
-    mutate(cost_per_patient=total_cost %/% no_of_patients)
-cmpp
+cmpp <- cmpp %>% summarise(sum(total_cost))
 
+total_cost_of_medication <- cmpp[[1]]
 
-#Compare with other practices in same postcode area
+total_patients <- no_of_patients[[1]]
+
+#Calculate the cost of medication per patient at practice
+cost_of_meds_per_patients <- total_cost_of_medication / 
+  total_patients 
+
+#Calculate for practices in same postcode area
 postcode <-  dbGetQuery(con, "
     select * from address
     ")
@@ -242,45 +232,41 @@ rlang::last_error()
 ?geom_bar
 
 #1c(iv) rate of Diabetes = no of patients with Diabetes at practice / 
-#total no of patients at the practice
+#total no of patients at the practice = nO_of_patients
 
+#Get no of patients with Diabetes at practice
+patients_with_diabetes <- qof_info %>% select(orgcode, indicator, numerator) %>% 
+    filter(str_detect(indicator,'^DM')) %>% 
+     summarise(patients_with_diabetes=sum(numerator))
 
-#Get the denominator
-total_patient_pop_practice <- dbGetQuery(con, "
-    select orgcode, sum(field4)as pop_per_practice
-    from qof_achievement
-    group by orgcode
-    ")
-total_patient_pop_practice
+#Calculate rate of Diabetes at practice
+rate_of_diabetes <- patients_with_diabetes / no_of_patients
 
+#Multiply by 100 to get percentage
+rate_of_diabetes <- rate_of_diabetes * 100
 
-#Get the numerator
-total_pop_diabetes_practice <- dbGetQuery(con, "
-    select orgcode, sum(field4)as pop_with_diabetes
-    from qof_achievement
-    where indicator like 'DM%'
-    group by orgcode
-    ")
-
-
-#Calculate the rate of diabetes per practice
-rate_diabetes_practice <- dbGetQuery(con, "
-    select tpdp.orgcode, 
-       cast(tpdp.pop_with_diabetes as float) / 
-       cast(tppp.pop_per_practice as float) as rate_diabetes
-    from total_pop_diabetes_practice as tpdp
-    inner join total_patient_pop_practice as tppp
-    on tpdp.orgcode = tppp.orgcode;
-    ")
-
-#Round up result figures to 1 decimal place
-rate_diabetes_per_patient <- dbGetQuery(con, "
-    select orgcode, round(cast (rate_diabetes as numeric), 1) as 
-       rate_diabetes
-    from rate_diabetes_practice;
-    ")
+rate_of_diabetes <- round(rate_of_diabetes, 1) #round to 1 decimal place
 
 #Report rate of diabetes at Practice
+
+#Create function
+get_rate_of_diabetes <- function(chosen_practiceid){
+  qof_info <- dbGetQuery(con, qq('
+    select * from qof_achievement
+    where orgcode = \'@{chosen_practiceid}\''))
+  
+  patients_with_diabetes <- qof_info %>% select(orgcode, indicator, numerator) %>% 
+    filter(str_detect(indicator,'^DM')) %>% 
+    summarise(patients_with_diabetes=sum(numerator))
+  
+  rate_of_diabetes <- patients_with_diabetes / no_of_patients
+  
+  rate_of_diabetes <- rate_of_diabetes * 100
+  
+  rate_of_diabetes <- round(rate_of_diabetes, 1) #round to 1 decimal place
+  return(rate_of_diabetes)
+}
+get_rate_of_diabetes()
 
 #Visualize rate of Diabetes at Practice compared to other Practices
 
