@@ -1,3 +1,11 @@
+# -----------------------------------------------------------------------------
+# <Assignment.r>
+# <Database Project>/<Scientific Computing and Healthcare>
+# <R Script>/<15/02/2022>
+# <Student ID>/<2149508>
+# <Rcode/RStudio Project>
+# <Copyright/2149508>
+# -----------------------------------------------------------------------------
 #Make sure the RPostgreSQL package is available.
 library("RPostgreSQL")
 
@@ -45,7 +53,15 @@ qof_achievement_columns <- get_columns('qof_achievement')
 
 gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 
-#Function to validate user's chosen practice
+#Questions - PART 1
+#user to select practice
+chosen_practiceid <- readline('Select Practice ID: ') 
+
+#Check that practice id entered by user follows the uniform pattern
+is_practiceid_valid <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
+
+
+#Create a function to validate user's chosen practice
 input_practiceid <- function() {
   is_practiceid_valid <- FALSE
   while(is_practiceid_valid == FALSE){
@@ -61,6 +77,13 @@ input_practiceid <- function() {
   return(chosen_practiceid)
 }
 
+
+#Q1(a) check if practice has medication information available
+med_info <- dbGetQuery(con, qq('
+    select bnfcode, bnfname, practiceid
+    from gp_data_up_to_2015
+    where practiceid = \'@{chosen_practiceid}\''))
+
 #Create function to check if practice has medication info
 has_medinfo <- function(chosen_practiceid) {
   med_info <- dbGetQuery(con, qq("
@@ -74,9 +97,15 @@ has_medinfo <- function(chosen_practiceid) {
   return(has_medicinfo)
 }
 
+
+#Q1(b) check if practice has QOF Data available
+qof_info <- dbGetQuery(con, qq('
+    select * from qof_achievement
+    where orgcode = \'@{chosen_practiceid}\''))
+
 #Create function to check if practice has qof info
 has_qofinfo <- function(chosen_practiceid) {
-  qof_info <- dbGetQuery(con, qq("
+ qof_info <- dbGetQuery(con, qq("
     select * from qof_achievement
     where orgcode = \'@{chosen_practiceid}\'"))
   has_qofinformation <- FALSE
@@ -85,6 +114,11 @@ has_qofinfo <- function(chosen_practiceid) {
   }
   return(has_qofinformation)
 }
+
+
+#Q1(ci) Calculate no of patients at Practice
+no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+    summarise(max=max(no_of_patients))
 
 #Create function to get no of patients
 get_no_of_patients <- function(chosen_practiceid) {
@@ -95,6 +129,37 @@ get_no_of_patients <- function(chosen_practiceid) {
     no_of_patients=field4) %>% summarise(max=max(no_of_patients))
   return(no_of_patients)
 }
+
+
+#Q1(cii) Calculate average amount spent per month on medication at the practice
+# average amount spent on medication = Total costs / no of months
+
+#Use ymd() from lubridate package to sort the date column
+med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
+  mutate(month=ym(month))
+
+#use floor_date() function from lubridate to group month
+med_cpp <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
+  summarize(total_cost_meds = sum(actcost))
+
+#Calculate the total cost of medication
+sum_of_meds <- med_cpp %>% summarise(sum(total_cost_meds)) 
+
+#To get number of months
+no_of_months <- nrow(med_cpp)
+
+#Calculate total average cost at practice
+avg_cost <- sum_of_meds %/% no_of_months
+
+#To save value as scalar
+avg_cost <- avg_cost[[1]]
+avg_cost
+
+no_of_months <- no_of_months[[1]]
+
+#Calculate average cost per month
+avg_cost_meds_per_month <- avg_cost / no_of_months
+
 
 #Create function to get average cost per month
 get_avg_spend_per_month <- function(chosen_practiceid){
@@ -122,7 +187,7 @@ get_avg_spend_per_month <- function(chosen_practiceid){
   return(avg_cost_meds_per_month)
 }
 
-
+#Putting it all together
 Question_1 <- function() {
   #accept user input
   correct_practiceid <- input_practiceid()
@@ -150,7 +215,7 @@ Question_1 <- function() {
                 no_of_patients)) 
     avg_spend_per_month <- get_avg_spend_per_month(correct_practiceid)
     print(paste('The average spend on medication per month at Practice ', 
-      correct_practiceid, 'is ', get_avg_spend_per_month(correct_practiceid))) 
+      correct_practiceid, 'is ', avg_spend_per_month)) 
   }
 }
 Question_1()
