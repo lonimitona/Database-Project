@@ -139,14 +139,14 @@ med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>%
   mutate(month=ym(month))
 
 #use floor_date() function from lubridate to group month
-med_cpp <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
+med_cpm <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
   summarize(total_cost_meds = sum(actcost))
 
 #Calculate the total cost of medication
-sum_of_meds <- med_cpp %>% summarise(sum(total_cost_meds)) 
+sum_of_meds <- med_cpm %>% summarise(sum(total_cost_meds)) 
 
 #To get number of months
-no_of_months <- nrow(med_cpp)
+no_of_months <- nrow(med_cpm)
 
 #Calculate total average cost at practice
 avg_cost <- sum_of_meds %/% no_of_months
@@ -170,12 +170,12 @@ get_avg_spend_per_month <- function(chosen_practiceid){
   med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
     mutate(month=ym(month))
   
-  med_cpp <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
+  med_cpm <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
     summarize(total_cost_meds = sum(actcost))
   
-  sum_of_meds <- med_cpp %>% summarise(sum(total_cost_meds)) 
+  sum_of_meds <- med_cpm %>% summarise(sum(total_cost_meds)) 
   
-  no_of_months <- nrow(med_cpp)
+  no_of_months <- nrow(med_cpm)
   
   avg_cost <- sum_of_meds %/% no_of_months
   
@@ -189,10 +189,10 @@ get_avg_spend_per_month <- function(chosen_practiceid){
 
 #Putting it all together
 Question_1 <- function() {
-  #accept user input
+#accept user input
   correct_practiceid <- input_practiceid()
   
-  #Check if the practice id has medication info available
+#Check if the practice id has medication info available
   if (has_medinfo(correct_practiceid)) {
     print(paste(correct_practiceid, ' has medication information available'))
   }
@@ -200,7 +200,7 @@ Question_1 <- function() {
     print(paste(correct_practiceid, ' does not have medication information available'))
   }
   
-  #Check if the practice id has QOF data available
+#Check if the practice id has QOF data available
   if (has_qofinfo(correct_practiceid)) {
     print(paste(correct_practiceid, ' has QOF data available'))
   }
@@ -208,7 +208,7 @@ Question_1 <- function() {
     print(paste(correct_practiceid, ' does not have QOF data available'))
   }  
   
-  #If practice has both medication and QOF data, then display information for practice
+#If practice has both medication and QOF data, then display information for practice
   if (has_medinfo(correct_practiceid) & has_qofinfo(correct_practiceid)) {
     no_of_patients <- get_no_of_patients(correct_practiceid)
     print(paste('Number of patients at Practice ', correct_practiceid, 'is ', 
