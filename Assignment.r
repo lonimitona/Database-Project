@@ -100,7 +100,7 @@ qof_info
 
 #Q1(ci) Calculate no of patients at Practice
 no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
-    summarise(max=max(no_of_patients))
+    summarise(total=max(no_of_patients))
 no_of_patients
 
 #Create function to get no of patients
@@ -109,7 +109,7 @@ get_no_of_patients <- function(chosen_practiceid) {
     select * from qof_achievement
     where orgcode = \'@{chosen_practiceid}\''))
   no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
-    summarise(max=max(no_of_patients))
+    summarise(total=max(no_of_patients))
   return(no_of_patients)
 }
 
@@ -270,143 +270,115 @@ get_rate_of_diabetes()
 
 #37% of patients at W*** practice suffer from Diabetes.
 
-#Visualize rate of Diabetes at Practice compared to other Practices in Wales
+
+
+
+
+#To get rate of Diabetes at Practice compared to other Practices in Wales
 #Get population of practices in Wales
 wal_qof_info <- dbGetQuery(con, "
     select * from qof_achievement
-    where orgcode like 'WAL%'
     ")
 wal_qof_info
 
-#Calculate total population of patients in Wales
-wales_pop <- wal_qof_info %>% rename(practiceid=orgcode, wal_tol_patients=field4) %>%
-  summarise(max=max(wal_tol_patients))
+#Calculate patients with diabetes in Wales (numerator)
+diabetes_each_practice <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>% filter(str_detect(indicator,'^DM')) %>% 
+  group_by(practiceid) %>% summarise(diabetes_patients=sum(numerator))
 
-#Calculate patients with diabetes in Wales
-wales_diabetes <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
-  filter(str_detect(indicator,'^DM')) %>% summarise(wales_diabetes=sum(numerator))
+#Get total population of patients in each practice (denominator)
+pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+  group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
 
-#Calculate rate of Diabetes at practice
-wales_rate_diabetes <- wales_diabetes / wales_pop
+#Join Diabetes and total population tables
+diabetes_pop <- diabetes_each_practice %>% full_join(pop_each_practice, 
+  by=c('practiceid'))
 
-#Multiply by 100 to get percentage
-wales_rate_diabetes <- wales_rate_diabetes * 100
+#Calculate rate of Diabetes at each practice
+rate_dm_practice <- diabetes_pop %>% group_by(practiceid) %>% 
+  summarise(rate_diabetes = diabetes_patients / total_pop)
 
-wales_rate_diabetes <- round(wales_rate_diabetes, 1) #round to 1 decimal place
 
-plot (x=qof_info$rate_diabetes_practice, y=wal_qof_info$wales_rate_diabetes)
 
-ggplot(data =  rate_diabetes_practice, mapping = aes(x = 37)) + 
-  ggplot(data = wales_rate_diabete, mapping = aes(x = 34.7))
-  geom_bar() +
-  coord_flip()
-
-ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient)) +
-  geom_col() +
-  scale_fill_manual(values = c('W92041' = 'blue'))
-
+#Visualize rate of Diabetes at practice compared to others in Wales
+ggplot(data = rate_dm_practice) +
+  geom_point(mapping = aes(x = practiceid, y = rate_diabetes), colour='blue')
 
 #2(i) Compare rate of diabetes and rate of insulin prescription 
 #at practice level
 #bnfcode for insulin medications start with identical 6 digits
 #rate of insulin prescription = total no of insulin prescriptions
 #in the practice / total no of patients in the same practice
-med_info <- dbGetQuery(con, qq('
-    select * from gp_data_up_to_2015
-    where practiceid = \'@{chosen_practiceid}\''))
-med_info
 
-
-wales_pop <- wal_qof_info %>% rename(practiceid=orgcode, wal_tol_patients=field4) %>%
-  summarise(max=max(wal_tol_patients))
-
-#Calculate patients with diabetes in Wales
-wales_diabetes <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
-  filter(str_detect(indicator,'^DM')) %>% summarise(wales_diabetes=sum(numerator))
-
-#Calculate rate of Diabetes at practice
-wales_rate_diabetes <- wales_diabetes / wales_pop
-
-#Multiply by 100 to get percentage
-wales_rate_diabetes <- wales_rate_diabetes * 100
-
-wales_rate_diabetes <- round(wales_rate_diabetes, 1) #round to 1 decimal place
-
-insulin_medications <- dbGetQuery(con, "
+insulin_meds <- dbGetQuery(con, "
     select * from gp_data_up_to_2015
     where bnfcode like '060101%'
     ")
-insulin_medications
+insulin_meds
 
+#Calculate insulin prescriptions per practice (numerator)
+ins_prsc_each_prac <- insulin_meds %>% select(practiceid, quantity, bnfname) %>% 
+  rename(ins_meds=bnfname) %>% group_by(practiceid) %>% 
+  summarise(insulin_prsc=sum(quantity))
 
-#Calculate insulin prescriptions per practice
-ins_prescription_per_practice <- dbGetQuery(con, "
-    select practiceid, sum(quantity) as no_of_insulin_prescriptions
-    from gp_data_up_to_2015 as gp
-    where bnfcode like '060101%'
-    group by practiceid
-    ")
-
-
-#Calculate total number of prescriptions per practice
+#Calculate total number of prescriptions per practice (denominator)
 total_drugs_per_practice <- dbGetQuery(con, "
     select practiceid, sum(quantity) as total_drugs_prescribed
     from gp_data_up_to_2015 
     group by practiceid
     ")
 
+#Join insulin prescriptions and total number of prescriptions (inner join 
+#excludes practices without insulin prescription)
+ins_prsc <- ins_prsc_each_prac %>% inner_join(total_drugs_per_practice, 
+    by=c('practiceid'))
 
-#Calculate rate of insulin prescription
-rate_insulin_prescription <- dbGetQuery(con, "
-    select ippp.practiceid, 
-      cast(ippp.no_of_insulin_prescriptions as float) / 
-      cast(tdpp.total_drugs_prescribed as float) as rate_insulin_prescription
-    from ins_prescription_per_practice as ippp
-    inner join total_drugs_per_practice as tdpp
-    on ippp.practiceid = tdpp.practiceid
-    ")
-
-#Round up result figures to 1 decimal place
-rate_of_insulin <- dbGetQuery(con, "
-    select practiceid, round(cast (rate_insulin_prescription as numeric), 1) as 
-       rate_of_insulin
-    from rate_insulin_prescription
-    ")
+#Calculate rate of Insulin prescription at each practice
+rate_insulin <- ins_prsc %>% group_by(practiceid) %>% 
+  summarise(rate_insulin = insulin_prsc / total_drugs_prescribed)
 
 #Compare rate of Diabetes and rate of insulin prescription
+#First join rate of Diabetes and rate of insulin prescription tables
+diabtes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
 
 
-address<-dbGetQuery(con, "
-          select * from address
-limit 100")
+
+#Visualize
+ggplot(data = compare_rates) +
+  geom_point(mapping = aes(x = rate_dm_practice, y = rate_insulin), colour='blue')
+
 
 #2(ii) Rate of Diabetes and rate of Metformin prescription
 #rate of Metformin prescription = total no of metformin prescriptions
 #in the practice / total no of other drug prescriptions in same practice
-metformin_medications <- dbGetQuery(con, "
+metformin_meds <- dbGetQuery(con, "
     select * from gp_data_up_to_2015
     where lower (bnfname) like 'metformin%' 
     ")
 
+#Calculate metformin prescription each practice (numerator)
+met_prsc_each_prac <- metformin_meds %>% select(practiceid, quantity, bnfname) %>% 
+  rename(met_meds=bnfname) %>% group_by(practiceid) %>% 
+  summarise(met_prsc=sum(quantity))
 
-#Calculate metformin prescription per practice
-met_prescription_per_practice <- dbGetQuery(con, "
-    select practiceid, sum(quantity) as no_of_met_prescriptions
-    from gp_data_up_to_2015 as gp
-    where lower (bnfname) like 'metformin%'
-    group by practiceid
-    ")
+#Join metformin prescriptions and total number of prescriptions (inner join 
+#excludes practices without insulin prescription)
+met_prsc <- met_prsc_each_prac %>% inner_join(total_drugs_per_practice, 
+                                              by=c('practiceid'))
 
+#Calculate rate of metformin prescription at each practice
+rate_metformin <- met_prsc %>% group_by(practiceid) %>% 
+  summarise(rate_metformin = met_prsc / total_drugs_prescribed)
 
-#Calculate rate of metformin prescription
-rate_metformin_prescription <- dbGetQuery(con, "
-    select mppp.practiceid, 
-       cast(mppp.no_of_met_prescriptions as float) / 
-       cast(tdpp.total_drugs_prescribed as float) as rate_metformin_prescription
-    from met_prescription_per_practice as mppp
-    inner join total_drugs_per_practice as tdpp
-    on mppp.practiceid = tdpp.practiceid
-    ")
+#Compare rate of Diabetes and rate of insulin prescription
+#First join rate of Diabetes and rate of insulin prescription tables
+diabetes_metformin_rate <- rate_dm_practice %>% inner_join(rate_metformin, 
+  by=c('practiceid'))
+
+#Visualize
+ggplot(data = compare_rates) +
+  geom_point(mapping = aes(x = rate_dm_practice, y =rate_metformin), colour='blue')
+
 
 #Round up result figures to 1 decimal place
 rate_of_metformin <- dbGetQuery(con, "
@@ -417,7 +389,12 @@ rate_of_metformin <- dbGetQuery(con, "
 
 #Compare rate of Diabetes and rate of Metformin prescription
 
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy))
 
+# right
+ggplot(data = mpg) +
+  geom_smooth(mapping = aes(x = rate_dm_practice, y = rate_metformin))
 
 #PART 2
 
