@@ -53,19 +53,15 @@ qof_achievement_columns <- get_columns('qof_achievement')
 
 gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 
-#Questions - PART 1
-#user to select practice
-chosen_practiceid <- readline('Select Practice ID: ') 
-
-#Check that practice id entered by user follows the uniform pattern
-is_practiceid_valid <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
-
+#PART 1 Questions
 
 #Create a function to validate user's chosen practice
 input_practiceid <- function() {
   is_practiceid_valid <- FALSE
   while(is_practiceid_valid == FALSE){
+    #user to select practice
     chosen_practiceid <- readline('Select Practice ID: ')
+    #Check that practice id entered by user follows the uniform pattern
     is_practiceid_valid <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
     if (is_practiceid_valid ==TRUE){
       print('Practice ID entered is correct')
@@ -78,18 +74,13 @@ input_practiceid <- function() {
 }
 
 
-#Q1(a) check if practice has medication information available
-med_info <- dbGetQuery(con, qq('
-    select bnfcode, bnfname, practiceid
-    from gp_data_up_to_2015
-    where practiceid = \'@{chosen_practiceid}\''))
-
 #Create function to check if practice has medication info
 has_medinfo <- function(chosen_practiceid) {
   med_info <- dbGetQuery(con, qq("
     select bnfcode, bnfname, practiceid
     from gp_data_up_to_2015
     where practiceid = \'@{chosen_practiceid}\'"))
+  #
   has_medicinfo <- FALSE
   if (count(med_info) > 0){
     has_medicinfo <- TRUE
@@ -97,11 +88,6 @@ has_medinfo <- function(chosen_practiceid) {
   return(has_medicinfo)
 }
 
-
-#Q1(b) check if practice has QOF Data available
-qof_info <- dbGetQuery(con, qq('
-    select * from qof_achievement
-    where orgcode = \'@{chosen_practiceid}\''))
 
 #Create function to check if practice has qof info
 has_qofinfo <- function(chosen_practiceid) {
@@ -116,49 +102,16 @@ has_qofinfo <- function(chosen_practiceid) {
 }
 
 
-#Q1(ci) Calculate no of patients at Practice
-no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
-    summarise(total=max(no_of_patients))
-
 #Create function to get no of patients
 get_no_of_patients <- function(chosen_practiceid) {
   qof_info <- dbGetQuery(con, qq('
     select * from qof_achievement
     where orgcode = \'@{chosen_practiceid}\''))
+  #Calculate no of patients at Practice
   no_of_patients <- qof_info %>% rename(practiceid=orgcode, 
     no_of_patients=field4) %>% summarise(total=max(no_of_patients))
   return(no_of_patients)
 }
-
-
-#Q1(cii) Calculate average amount spent per month on medication at the practice
-# average amount spent on medication = Total costs / no of months
-
-#Use ymd() from lubridate package to sort the date column
-med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
-  mutate(month=ym(month))
-
-#use floor_date() function from lubridate to group month
-med_cpm <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
-  summarize(total_cost_meds = sum(actcost))
-
-#Calculate the total cost of medication
-sum_of_meds <- med_cpm %>% summarise(sum(total_cost_meds)) 
-
-#To get number of months
-no_of_months <- nrow(med_cpm)
-
-#Calculate total average cost at practice
-avg_cost <- sum_of_meds %/% no_of_months
-
-#To save value as scalar
-avg_cost <- avg_cost[[1]]
-avg_cost
-
-no_of_months <- no_of_months[[1]]
-
-#Calculate average cost per month
-avg_cost_meds_per_month <- avg_cost / no_of_months
 
 
 #Create function to get average cost per month
@@ -166,49 +119,46 @@ get_avg_spend_per_month <- function(chosen_practiceid){
   med_info <- dbGetQuery(con, qq('
     select * from gp_data_up_to_2015
     where practiceid = \'@{chosen_practiceid}\''))
-  
+  #Use ymd() from lubridate package to sort the date column
   med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
     mutate(month=ym(month))
-  
+  #use floor_date() function from lubridate to group month
   med_cpm <- med_cost %>% group_by(month = lubridate::floor_date(month, "month")) %>%
     summarize(total_cost_meds = sum(actcost))
-  
+  #Calculate the total cost of medication
   sum_of_meds <- med_cpm %>% summarise(sum(total_cost_meds)) 
-  
+  #To get number of months
   no_of_months <- nrow(med_cpm)
-  
+  #Calculate total average cost at practice
   avg_cost <- sum_of_meds %/% no_of_months
-  
+  #To save value as scalar
   avg_cost <- avg_cost[[1]]
-  
   no_of_months <- no_of_months[[1]]
-  
+  #Calculate average cost per month
   avg_cost_meds_per_month <- avg_cost / no_of_months
   return(avg_cost_meds_per_month)
 }
 
+
 #Putting it all together
 Question_1 <- function() {
-#accept user input
+  #accept user input
   correct_practiceid <- input_practiceid()
-  
-#Check if the practice id has medication info available
+  #Check if the practice id has medication info available
   if (has_medinfo(correct_practiceid)) {
     print(paste(correct_practiceid, ' has medication information available'))
   }
   else{
     print(paste(correct_practiceid, ' does not have medication information available'))
   }
-  
-#Check if the practice id has QOF data available
+  #Check if the practice id has QOF data available
   if (has_qofinfo(correct_practiceid)) {
     print(paste(correct_practiceid, ' has QOF data available'))
   }
   else{
     print(paste(correct_practiceid, ' does not have QOF data available'))
   }  
-  
-#If practice has both medication and QOF data, then display information for practice
+  #If practice has both medication and QOF data, then display information for practice
   if (has_medinfo(correct_practiceid) & has_qofinfo(correct_practiceid)) {
     no_of_patients <- get_no_of_patients(correct_practiceid)
     print(paste('Number of patients at Practice ', correct_practiceid, 'is ', 
