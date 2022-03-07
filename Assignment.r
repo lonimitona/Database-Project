@@ -245,11 +245,11 @@ rate_of_diabetes <- patients_with_diabetes / no_of_patients
 #Multiply by 100 to get percentage
 rate_of_diabetes <- rate_of_diabetes * 100
 
-rate_of_diabetes <- round(rate_of_diabetes, 1) #round to 1 decimal place
+rate_diabetes_practice <- round(rate_of_diabetes, 1) #round to 1 decimal place
 
 #Report rate of diabetes at Practice
 
-#Create function
+#Create function to get rate of diabetes at practice
 get_rate_of_diabetes <- function(chosen_practiceid){
   qof_info <- dbGetQuery(con, qq('
     select * from qof_achievement
@@ -263,19 +263,74 @@ get_rate_of_diabetes <- function(chosen_practiceid){
   
   rate_of_diabetes <- rate_of_diabetes * 100
   
-  rate_of_diabetes <- round(rate_of_diabetes, 1) #round to 1 decimal place
-  return(rate_of_diabetes)
+  rate_diabetes_practice <- round(rate_of_diabetes, 1) 
+  return(rate_diabetes_practice)
 }
 get_rate_of_diabetes()
 
-#Visualize rate of Diabetes at Practice compared to other Practices
+#37% of patients at W*** practice suffer from Diabetes.
+
+#Visualize rate of Diabetes at Practice compared to other Practices in Wales
+#Get population of practices in Wales
+wal_qof_info <- dbGetQuery(con, "
+    select * from qof_achievement
+    where orgcode like 'WAL%'
+    ")
+wal_qof_info
+
+#Calculate total population of patients in Wales
+wales_pop <- wal_qof_info %>% rename(practiceid=orgcode, wal_tol_patients=field4) %>%
+  summarise(max=max(wal_tol_patients))
+
+#Calculate patients with diabetes in Wales
+wales_diabetes <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
+  filter(str_detect(indicator,'^DM')) %>% summarise(wales_diabetes=sum(numerator))
+
+#Calculate rate of Diabetes at practice
+wales_rate_diabetes <- wales_diabetes / wales_pop
+
+#Multiply by 100 to get percentage
+wales_rate_diabetes <- wales_rate_diabetes * 100
+
+wales_rate_diabetes <- round(wales_rate_diabetes, 1) #round to 1 decimal place
+
+plot (x=qof_info$rate_diabetes_practice, y=wal_qof_info$wales_rate_diabetes)
+
+ggplot(data =  rate_diabetes_practice, mapping = aes(x = 37)) + 
+  ggplot(data = wales_rate_diabete, mapping = aes(x = 34.7))
+  geom_bar() +
+  coord_flip()
+
+ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient)) +
+  geom_col() +
+  scale_fill_manual(values = c('W92041' = 'blue'))
 
 
 #2(i) Compare rate of diabetes and rate of insulin prescription 
 #at practice level
 #bnfcode for insulin medications start with identical 6 digits
 #rate of insulin prescription = total no of insulin prescriptions
-#in the practice / total no of other drug prescriptions in same practice
+#in the practice / total no of patients in the same practice
+med_info <- dbGetQuery(con, qq('
+    select * from gp_data_up_to_2015
+    where practiceid = \'@{chosen_practiceid}\''))
+med_info
+
+
+wales_pop <- wal_qof_info %>% rename(practiceid=orgcode, wal_tol_patients=field4) %>%
+  summarise(max=max(wal_tol_patients))
+
+#Calculate patients with diabetes in Wales
+wales_diabetes <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
+  filter(str_detect(indicator,'^DM')) %>% summarise(wales_diabetes=sum(numerator))
+
+#Calculate rate of Diabetes at practice
+wales_rate_diabetes <- wales_diabetes / wales_pop
+
+#Multiply by 100 to get percentage
+wales_rate_diabetes <- wales_rate_diabetes * 100
+
+wales_rate_diabetes <- round(wales_rate_diabetes, 1) #round to 1 decimal place
 
 insulin_medications <- dbGetQuery(con, "
     select * from gp_data_up_to_2015
@@ -320,6 +375,10 @@ rate_of_insulin <- dbGetQuery(con, "
 
 #Compare rate of Diabetes and rate of insulin prescription
 
+
+address<-dbGetQuery(con, "
+          select * from address
+limit 100")
 
 #2(ii) Rate of Diabetes and rate of Metformin prescription
 #rate of Metformin prescription = total no of metformin prescriptions
