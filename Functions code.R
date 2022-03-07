@@ -118,7 +118,7 @@ has_qofinfo <- function(chosen_practiceid) {
 
 #Q1(ci) Calculate no of patients at Practice
 no_of_patients <- qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
-    summarise(max=max(no_of_patients))
+    summarise(total=max(no_of_patients))
 
 #Create function to get no of patients
 get_no_of_patients <- function(chosen_practiceid) {
@@ -126,7 +126,7 @@ get_no_of_patients <- function(chosen_practiceid) {
     select * from qof_achievement
     where orgcode = \'@{chosen_practiceid}\''))
   no_of_patients <- qof_info %>% rename(practiceid=orgcode, 
-    no_of_patients=field4) %>% summarise(max=max(no_of_patients))
+    no_of_patients=field4) %>% summarise(total=max(no_of_patients))
   return(no_of_patients)
 }
 
@@ -219,3 +219,12 @@ Question_1 <- function() {
   }
 }
 Question_1()
+
+
+# Close the connection and unload the drivers.
+dbDisconnect(con)
+dbUnloadDriver(drv)
+
+cat('\nEnd of analysis. Thank you for using 2149508\'s code.\n',
+    'For more information, please contact 2149508 on\n',
+    '2149508@swansea.ac.uk.')
