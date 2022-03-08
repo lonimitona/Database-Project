@@ -388,15 +388,21 @@ rate_insulin <- ins_prsc %>% group_by(practiceid) %>%
 
 #Compare rate of Diabetes and rate of insulin prescription
 #First join rate of Diabetes and rate of insulin prescription tables
-diabtes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
-
-#Test for significance using Pearson's correlation test
-cor.test(diabtes_ins_rate$rate_dm_practice, diabtes_ins_rate$rate_insulin)
+diabetes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
 
 #Visualize
-ggplot(data = diabtes_ins_rate) +
-  geom_point(mapping = aes(x = rate_diabetes, y = rate_insulin, colour='red'))
+plot(diabetes_ins_rate$rate_diabetes, diabetes_ins_rate_rate$rate_insulin, 
+     main='Scatterplot of Diabetes and Insulin prescription',
+     xlab='Rate of Diabetes', ylab='Rate of Insulin prescription')
 
+#Test for significance using Pearson's correlation test
+rel_dm_ins <- cor.test(diabetes_ins_rate$rate_diabetes, diabtes_ins_rate$rate_insulin)
+rel_dm_ins
+
+#The relationship between the rate of Diabetes and rate of insulin prescriptions
+#was investigated using Pearson’s correlation. There was evidence 
+#(p > 0.005) to suggest that there is no statistically significant relationship
+#between rate of Diabetes and rate of insulin prescriptions.
 
 #2(ii) Rate of Diabetes and rate of Metformin prescription
 #rate of Metformin prescription = total no of metformin prescriptions
@@ -426,9 +432,24 @@ diabetes_metformin_rate <- rate_dm_practice %>% inner_join(rate_metformin,
   by=c('practiceid'))
 
 #Visualize
-ggplot(data = diabetes_metformin_rate) +
-  geom_point(mapping = aes(x = rate_diabetes, y =rate_metformin), colour='blue') +
-  geom_smooth(mapping = aes(x = rate_diabetes, y = rate_metformin, colour='red'))
+plot(diabetes_metformin_rate$rate_diabetes, diabetes_metformin_rate$rate_metformin, 
+     main='Scatterplot of Diabetes and Metformin prescription',
+     xlab='Rate of Diabetes', ylab='Rate of Metformin prescription')
+
+#Test for significance using Pearson's correlation test
+rel_dm_met <- cor.test(diabetes_metformin_rate$rate_diabetes, 
+  diabetes_metformin_rate$rate_metformin)
+rel_dm_met
+#The relationship between the rate of Diabetes and rate of Metformin prescriptions
+#was investigated using Pearson’s correlation. There was evidence 
+#(p < 0.005) to suggest that there is a statistically significant relationship
+#between rate of Diabetes and rate of metformin prescriptions.
+#The correlation co-efficient of 0.4032999 suggests that there is a strong positive 
+#correlation between the rate of diabetes and rate of metformin prescription.
+#
+
+ 
+  
 
 
 #PART 2
