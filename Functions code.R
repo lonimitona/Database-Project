@@ -136,6 +136,7 @@ get_avg_spend_per_month <- function(chosen_practiceid){
   no_of_months <- no_of_months[[1]]
   #Calculate average cost per month
   avg_cost_meds_per_month <- avg_cost / no_of_months
+  avg_cost_meds_per_month <- round(avg_cost_meds_per_month, 1)
   return(avg_cost_meds_per_month)
 }
 
@@ -167,7 +168,7 @@ get_chosen_postcode <- function(chosen_practiceid){
   amt_meds_per_patient <- meds_postcode %>% 
     mutate(meds_per_patient=total_costs/total_pop)
   #
-  one_postcode<- filter(meds_postcode, practiceid == chosen_practiceid)
+  one_postcode<- filter(meds_postcode, practiceid==chosen_practiceid)
   #Bring out value of postcode from the column
   pc_code <- one_postcode$postcode[1]
   #Select first 2 letters of postcode
