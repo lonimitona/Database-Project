@@ -139,6 +139,41 @@ get_avg_spend_per_month <- function(chosen_practiceid){
   return(avg_cost_meds_per_month)
 }
 
+#Create a function to get postcode like practiceid chosen
+chosen_postcode <- function(){
+  #get medication data
+  meds <- dbGetQuery(con, "
+    select practiceid, sum(nic) as total_costs
+    from gp_data_up_to_2015
+    group by practiceid;
+    ")
+  #merge medication table and population table
+  meds_pop <- meds %>% inner_join(pop_each_practice, by=c('practiceid'))
+  #get postcode data
+  postcode <- dbGetQuery(con, "
+    select practiceid, postcode
+    from address
+    ")
+  #merge postcode table with medication and population table
+  meds_postcode <- postcode %>% inner_join(meds_pop, by=c('practiceid'))
+  #Calculate amount spent on medication per patient
+  amt_meds_per_patient <- meds_postcode %>% 
+    mutate(meds_per_patient=total_costs/total_pop)
+  #
+  one_postcode<- filter(meds_postcode, practiceid == chosen_practiceid)
+  #Bring out value of postcode from the column
+  pc_code <- one_postcode$postcode[1]
+  #Select first 2 letters of postcode
+  digits <- substring(pc_code,1,2)
+  #Select just first 2 letters of postcode
+  string_pattern <- str_interp('^${digits}')
+  #Select practices sharing same postcode with user's chosen practice
+  chosen_postcode <- amt_meds_per_patient %>% filter(str_detect(postcode, string_pattern)) 
+  #Visualization showing cost of medication per patient compared to other
+  #practices within same postcode area
+  ggplot(data = chosen_postcode) + geom_bar(mapping = aes(x = practiceid, 
+     count = meds_per_patient, fill = chosen_practiceid))
+}
 
 #Putting it all together
 Question_1 <- function() {
