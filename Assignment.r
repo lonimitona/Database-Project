@@ -144,6 +144,8 @@ no_of_months <- no_of_months[[1]]
 #Calculate average cost per month
 avg_cost_meds_per_month <- avg_cost / no_of_months
 
+avg_cost_meds_per_month <- round(avg_cost_meds_per_month, 1)
+
 #Function
 avg_spend_per_month <- function(chosen_practiceid){
   med_info <- dbGetQuery(con, qq('
@@ -167,6 +169,8 @@ avg_spend_per_month <- function(chosen_practiceid){
   no_of_months <- no_of_months[[1]]
   
   avg_cost_meds_per_month <- avg_cost / no_of_months
+  
+  avg_cost_meds_per_month <- round(avg_cost_meds_per_month, 1)
   return(avg_cost_meds_per_month)
 }
 avg_spend_per_month('W92041')
@@ -175,6 +179,13 @@ avg_spend_per_month('W92041')
 #in same postcode
 #cost of medication per patient (cmpp) = sum(nic) / no_of_patients
 #First Calculate for chosen practice
+wal_qof_info <- dbGetQuery(con, "
+    select * from qof_achievement
+    ")
+
+pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+  group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
+
 meds <- dbGetQuery(con, "
     select practiceid, sum(nic) as total_costs
     from gp_data_up_to_2015
@@ -189,9 +200,24 @@ postcode <- dbGetQuery(con, "
     ")
 
 meds_postcode <- meds_pop %>% inner_join(postcode, by=c('practiceid'))
-
+amt_meds_per_patient <- meds_postcode %>% 
+  mutate(meds_per_patient=total_costs/total_pop)
+#
+one_postcode<- filter(meds_postcode, practiceid == chosen_practiceid)
+#Bring out value of postcode from the column
+pc_code <- one_postcode$postcode[1]
+#Select first 2 letters of postcode
+digits <- substring(pc_code,1,2)
+#Select just first 2 letters of postcode
+string_pattern <- str_interp('^${digits}')
+#Select practices sharing same postcode with user's chosen practice
+chosen_postcode <- amt_meds_per_patient %>% filter(str_detect(postcode, string_pattern)) 
+#Visualization showing cost of medication per patient compared to other
+#practices within same postcode area
+barchart <- ggplot(data = chosen_postcode) + geom_bar(mapping = aes(x = practiceid, 
+                                                                    fill = chosen_practiceid))
 #Create a function to get postcode like practiceid chosen
-chosen_postcode <- function(){
+get_chosen_postcode <- function(){
  #get medication data
   meds <- dbGetQuery(con, "
     select practiceid, sum(nic) as total_costs
@@ -272,8 +298,9 @@ get_rate_of_diabetes <- function(chosen_practiceid){
   rate_diabetes_practice <- round(rate_of_diabetes, 1) 
   return(rate_diabetes_practice)
 }
-get_rate_of_diabetes()
+get_rate_of_diabetes(chosen_practiceid)
 
+print(paste(rate_of_diabetes, ' of patients at Practice ', correct_practiceid, 'suffer from Diabetes '))
 #37% of patients at W*** practice suffer from Diabetes.
 
 
@@ -363,12 +390,12 @@ rate_insulin <- ins_prsc %>% group_by(practiceid) %>%
 #First join rate of Diabetes and rate of insulin prescription tables
 diabtes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
 
-
+#Test for significance using Pearson's correlation test
+cor.test(diabtes_ins_rate$rate_dm_practice, diabtes_ins_rate$rate_insulin)
 
 #Visualize
 ggplot(data = diabtes_ins_rate) +
-  geom_point(mapping = aes(x = rate_diabetes, y = rate_insulin, colour='red')) +
-  geom_smooth(mapping = aes(x = rate_diabetes, y = rate_insulin, colour='blue'))
+  geom_point(mapping = aes(x = rate_diabetes, y = rate_insulin, colour='red'))
 
 
 #2(ii) Rate of Diabetes and rate of Metformin prescription
