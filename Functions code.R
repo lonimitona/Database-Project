@@ -140,7 +140,14 @@ get_avg_spend_per_month <- function(chosen_practiceid){
 }
 
 #Create a function to get postcode like practiceid chosen
-chosen_postcode <- function(){
+get_chosen_postcode <- function(chosen_practiceid){
+  ##Get population of all patients
+  wal_qof_info <- dbGetQuery(con, "
+    select * from qof_achievement
+    ")
+  #Get total population of patients in each practice 
+  pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+    group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
   #get medication data
   meds <- dbGetQuery(con, "
     select practiceid, sum(nic) as total_costs
@@ -172,7 +179,8 @@ chosen_postcode <- function(){
   #Visualization showing cost of medication per patient compared to other
   #practices within same postcode area
   ggplot(data = chosen_postcode) + geom_bar(mapping = aes(x = practiceid, 
-     count = meds_per_patient, fill = chosen_practiceid))
+     fill = chosen_practiceid))
+  return(get_chosen_postcode(chosen_practiceid))
 }
 
 #Putting it all together
@@ -201,6 +209,10 @@ Question_1 <- function() {
     avg_spend_per_month <- get_avg_spend_per_month(correct_practiceid)
     print(paste('The average spend on medication per month at Practice ', 
       correct_practiceid, 'is ', avg_spend_per_month)) 
+    chosen_postcode <- get_chosen_postcode(chosen_practiceid)
+    print(paste('See bar chart showing amount spent on medications per patient compared to other practices in same post code with ', 
+                correct_practiceid, '-> ', chosen_postcode)) 
+    
   }
 }
 Question_1()
