@@ -53,7 +53,7 @@ qof_achievement_columns <- get_columns('qof_achievement')
 
 gp_data_up_to_2015_columns <- get_columns('gp_data_up_to_2015')
 
-#PART 1 Questions
+#PART 1 - Question 1
 
 #Create a function to validate user's chosen practice
 input_practiceid <- function() {
@@ -136,6 +136,7 @@ get_avg_spend_per_month <- function(chosen_practiceid){
   no_of_months <- no_of_months[[1]]
   #Calculate average cost per month
   avg_cost_meds_per_month <- avg_cost / no_of_months
+  #round to 1 decimal place
   avg_cost_meds_per_month <- round(avg_cost_meds_per_month, 1)
   return(avg_cost_meds_per_month)
 }
@@ -184,6 +185,63 @@ get_chosen_postcode <- function(chosen_practiceid){
   return(get_chosen_postcode(chosen_practiceid))
 }
 
+#Create function to get rate of diabetes at practice
+get_rate_of_diabetes <- function(chosen_practiceid){
+  qof_info <- dbGetQuery(con, qq('
+    select * from qof_achievement
+    where orgcode = \'@{chosen_practiceid}\''))
+  patients_with_diabetes <- qof_info %>% select(orgcode, indicator, numerator) %>% 
+    filter(str_detect(indicator,'^DM')) %>% 
+    summarise(patients_with_diabetes=sum(numerator))
+  #Calculate rate of Diabetes at practice
+  rate_of_diabetes <- patients_with_diabetes / no_of_patients
+  #Multiply by 100 to get percentage
+  rate_of_diabetes <- rate_of_diabetes * 100
+  #round to 1 decimal place
+  rate_diabetes_practice <- round(rate_of_diabetes, 1) 
+  return(rate_diabetes_practice)
+}
+
+#Create function to compare rate of diabetes and insulin prescription, and report 
+#significant relationship
+compare_dm_ins <- function(){
+  insulin_meds <- dbGetQuery(con, "
+    select * from gp_data_up_to_2015
+    where bnfcode like '060101%'
+    ")
+  insulin_meds
+  
+  #Calculate insulin prescriptions per practice (numerator)
+  ins_prsc_each_prac <- insulin_meds %>% select(practiceid, quantity, bnfname) %>% 
+    rename(ins_meds=bnfname) %>% group_by(practiceid) %>% 
+    summarise(insulin_prsc=sum(quantity))
+  
+  #Calculate total number of prescriptions per practice (denominator)
+  total_drugs_per_practice <- dbGetQuery(con, "
+    select practiceid, sum(quantity) as total_drugs_prescribed
+    from gp_data_up_to_2015 
+    group by practiceid
+    ")
+  
+  #Join insulin prescriptions and total number of prescriptions (inner join 
+  #excludes practices without insulin prescription)
+  ins_prsc <- ins_prsc_each_prac %>% inner_join(total_drugs_per_practice, 
+                                                by=c('practiceid'))
+  
+  #Calculate rate of Insulin prescription at each practice
+  rate_insulin <- ins_prsc %>% group_by(practiceid) %>% 
+    summarise(rate_insulin = insulin_prsc / total_drugs_prescribed)
+  
+  #Compare rate of Diabetes and rate of insulin prescription
+  #First join rate of Diabetes and rate of insulin prescription tables
+  diabetes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
+  
+  #Test for significance using Pearson's correlation test
+  stat_sig <- cor.test(diabetes_ins_rate$rate_diabetes, diabtes_ins_rate$rate_insulin)
+  stat_sig
+}
+
+
 #Putting it all together
 Question_1 <- function() {
   #accept user input
@@ -213,11 +271,87 @@ Question_1 <- function() {
     chosen_postcode <- get_chosen_postcode(chosen_practiceid)
     print(paste('See bar chart showing amount spent on medications per patient compared to other practices in same post code with ', 
                 correct_practiceid, '-> ', chosen_postcode)) 
-    
+    rate_of_diabetes <- get_rate_of_diabetes(correct_practiceid)
+    print(paste(rate_of_diabetes, '% of patients at Practice ', correct_practiceid, 'suffer from Diabetes '))
   }
 }
 Question_1()
 
+
+#Question 2
+#Create a function to compare rate of diabetes and rate of insulin prescription 
+#in Wales
+get_dm_ins_rel <- function() {
+  insulin_meds <- dbGetQuery(con, "
+    select * from gp_data_up_to_2015
+    where bnfcode like '060101%'
+    ")
+  insulin_meds
+  #Calculate insulin prescriptions per practice (numerator)
+  ins_prsc_each_prac <- insulin_meds %>% select(practiceid, quantity, bnfname) %>% 
+    rename(ins_meds=bnfname) %>% group_by(practiceid) %>% 
+    summarise(insulin_prsc=sum(quantity))
+  #Calculate total number of prescriptions per practice (denominator)
+  total_drugs_per_practice <- dbGetQuery(con, "
+    select practiceid, sum(quantity) as total_drugs_prescribed
+    from gp_data_up_to_2015 
+    group by practiceid
+    ")
+  #Join insulin prescriptions and total number of prescriptions 
+  ins_prsc <- ins_prsc_each_prac %>% inner_join(total_drugs_per_practice, 
+    by=c('practiceid'))
+  #Calculate rate of Insulin prescription at each practice
+  rate_insulin <- ins_prsc %>% group_by(practiceid) %>% 
+    summarise(rate_insulin = insulin_prsc / total_drugs_prescribed)
+  #Compare rate of Diabetes and rate of insulin prescription
+  #First join rate of Diabetes and rate of insulin prescription tables
+  diabetes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
+  #Visualize
+  print(paste('See scatterplot showing relationship between rate of diabetes',
+  'and rate of insulin prescriptions in the console -> '))
+  plot(diabetes_ins_rate$rate_diabetes, diabetes_ins_rate$rate_insulin, 
+       main='Scatterplot of Diabetes and Insulin prescription',
+       xlab='Rate of Diabetes', ylab='Rate of Insulin prescription')
+  #Test for significance using Pearson's correlation test
+  rel_dm_ins <- cor.test(diabetes_ins_rate$rate_diabetes, diabtes_ins_rate$rate_insulin)
+  return(rel_dm_ins)
+}
+get_dm_ins_rel()
+
+#Create a function to compare rate of diabetes and rate of metformin prescription 
+#in Wales
+get_dm_met_rel <- function(){
+  metformin_meds <- dbGetQuery(con, "
+    select * from gp_data_up_to_2015
+    where lower (bnfname) like 'metformin%' 
+    ")
+  #Calculate metformin prescription each practice (numerator)
+  met_prsc_each_prac <- metformin_meds %>% select(practiceid, quantity, bnfname) %>% 
+    rename(met_meds=bnfname) %>% group_by(practiceid) %>% 
+    summarise(met_prsc=sum(quantity))
+  
+  #Join metformin prescriptions and total number of prescriptions (inner join 
+  #excludes practices without insulin prescription)
+  met_prsc <- met_prsc_each_prac %>% inner_join(total_drugs_per_practice, 
+    by=c('practiceid'))
+  #Calculate rate of metformin prescription at each practice
+  rate_metformin <- met_prsc %>% group_by(practiceid) %>% 
+    summarise(rate_metformin = met_prsc / total_drugs_prescribed)
+  #Compare rate of Diabetes and rate of insulin prescription
+  #First join rate of Diabetes and rate of insulin prescription tables
+  diabetes_metformin_rate <- rate_dm_practice %>% inner_join(rate_metformin, 
+     by=c('practiceid'))
+  #Visualize
+  print(paste('See scatterplot showing relationship between rate of diabetes',
+              'and rate of metformin prescriptions in the console -> '))
+  plot(diabetes_metformin_rate$rate_diabetes, diabetes_metformin_rate$rate_metformin, 
+       main='Scatterplot of Diabetes and Metformin prescription',
+       xlab='Rate of Diabetes', ylab='Rate of Metformin prescription')
+  #Test for significance using Pearson's correlation test
+  rel_dm_met <- cor.test(diabetes_metformin_rate$rate_diabetes, 
+       diabetes_metformin_rate$rate_metformin)
+  return(rel_dm_met)
+}
 
 # Close the connection and unload the drivers.
 dbDisconnect(con)
