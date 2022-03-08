@@ -175,61 +175,81 @@ avg_spend_per_month('W92041')
 #in same postcode
 #cost of medication per patient (cmpp) = sum(nic) / no_of_patients
 #First Calculate for chosen practice
-cmpp <- med_info %>% select(period, nic) %>% rename(year=period) %>% 
-    mutate(year=ym(year))
-
-cmpp <- cmpp %>% group_by(year = lubridate::floor_date(year, "year")) %>%
-    summarize(total_cost = sum(nic))
-
-cmpp <- cmpp %>% summarise(sum(total_cost))
-
-total_cost_of_medication <- cmpp[[1]]
-
-total_patients <- no_of_patients[[1]]
-
-#Calculate the cost of medication per patient at practice
-cost_of_meds_per_patients <- total_cost_of_medication / 
-  total_patients 
-
-#Calculate for practices in same postcode area
-postcode <-  dbGetQuery(con, "
-    select * from address
+meds <- dbGetQuery(con, "
+    select practiceid, sum(nic) as total_costs
+    from gp_data_up_to_2015
+    group by practiceid;
     ")
 
-cmpp %>% select(year, cost_per_patient) 
+meds_pop <- meds %>% inner_join(pop_each_practice, by=c('practiceid'))
 
-meds_per_patient_same_postcode <- dbGetQuery(con, "
-    select a.practiceid, street, cmpp.amt_per_patient, postcode 
-    from address as a
-    inner join cost_meds_per_patient as cmpp
-    on a.practiceid = cmpp.practiceid
-    where postcode like 'SA%'
+postcode <- dbGetQuery(con, "
+    select practiceid, postcode
+    from address
     ")
-meds_per_patient_same_postcode
+
+meds_postcode <- meds_pop %>% inner_join(postcode, by=c('practiceid'))
+
+#Create a function to get postcode like practiceid chosen
+chosen_postcode <- function(){
+ #get medication data
+  meds <- dbGetQuery(con, "
+    select practiceid, sum(nic) as total_costs
+    from gp_data_up_to_2015
+    group by practiceid;
+    ")
+  #merge medication table and population table
+  meds_pop <- meds %>% inner_join(pop_each_practice, by=c('practiceid'))
+  #get postcode data
+  postcode <- dbGetQuery(con, "
+    select practiceid, postcode
+    from address
+    ")
+  #merge postcode table with medication and population table
+  meds_postcode <- postcode %>% inner_join(meds_pop, by=c('practiceid'))
+  #Calculate amount spent on medication per patient
+  amt_meds_per_patient <- meds_postcode %>% 
+    mutate(meds_per_patient=total_costs/total_pop)
+  #
+  one_postcode<- filter(meds_postcode, practiceid == chosen_practiceid)
+  #Bring out value of postcode from the column
+  pc_code <- one_postcode$postcode[1]
+  #Select first 2 letters of postcode
+  digits <- substring(pc_code,1,2)
+  #Select just first 2 letters of postcode
+  string_pattern <- str_interp('^${digits}')
+  #Select practices sharing same postcode with user's chosen practice
+  chosen_postcode <- amt_meds_per_patient %>% filter(str_detect(postcode, string_pattern)) 
+}
+
+#Calculate amount spent on medication per patient
+amt_meds_per_patient <- meds_postcode %>% 
+  mutate(meds_per_patient=total_costs/total_pop)
+#
+one_postcode<- filter(meds_postcode, practiceid == chosen_practiceid)
+#Bring out value of postcode from the column
+pc_code <- one_postcode$postcode[1]
+#Select first 2 letters of postcode
+digits <- substring(pc_code,1,2)
+#Select just first 2 letters of postcode
+string_pattern <- str_interp('^${digits}')
+#Select practices sharing same postcode with user's chosen practice
+chosen_postcode <- amt_meds_per_patient %>% filter(str_detect(postcode, string_pattern)) 
+  
+
+
+
+
+
+
 
 
 #Visualization showing cost of medication per patient compared to other
 #practices within same postcode area
-mppsp <- meds_per_patient_same_postcode
 
-ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient, 
-                                   fill= practiceid == 'W92041')) +
-  geom_col(width = 1) +
-  geom_text(aes(label=amt_per_patient), vjust = 1.5) +
-  coord_flip()
 
-ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient, 
-                                   fill= practiceid == 'W92041')) +
-  geom_bar(stat = 'identity') +
-  geom_text(aes(label=amt_per_patient), vjust = -0.2) +
-  coord_flip()
 
-ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient)) +
-  geom_col() +
-  scale_fill_manual(values = c('W92041' = 'blue'))
 
-rlang::last_error()
-?geom_bar
 
 #1c(iv) rate of Diabetes = no of patients with Diabetes at practice / 
 #total no of patients at the practice = nO_of_patients
@@ -254,15 +274,14 @@ get_rate_of_diabetes <- function(chosen_practiceid){
   qof_info <- dbGetQuery(con, qq('
     select * from qof_achievement
     where orgcode = \'@{chosen_practiceid}\''))
-  
   patients_with_diabetes <- qof_info %>% select(orgcode, indicator, numerator) %>% 
     filter(str_detect(indicator,'^DM')) %>% 
     summarise(patients_with_diabetes=sum(numerator))
-  
+  #Calculate rate of Diabetes at practice
   rate_of_diabetes <- patients_with_diabetes / no_of_patients
-  
+  #Multiply by 100 to get percentage
   rate_of_diabetes <- rate_of_diabetes * 100
-  
+  #round to 1 decimal place
   rate_diabetes_practice <- round(rate_of_diabetes, 1) 
   return(rate_diabetes_practice)
 }
@@ -271,15 +290,15 @@ get_rate_of_diabetes()
 #37% of patients at W*** practice suffer from Diabetes.
 
 
-
-
-
 #To get rate of Diabetes at Practice compared to other Practices in Wales
 #Get population of practices in Wales
 wal_qof_info <- dbGetQuery(con, "
     select * from qof_achievement
     ")
-wal_qof_info
+
+#Calculate patients with diabetes in Wales
+wales_diabetes <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
+  filter(str_detect(indicator,'^DM')) %>% summarise(wales_diabetes=sum(numerator))
 
 #Calculate patients with diabetes in Wales (numerator)
 diabetes_each_practice <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
@@ -298,11 +317,27 @@ diabetes_pop <- diabetes_each_practice %>% full_join(pop_each_practice,
 rate_dm_practice <- diabetes_pop %>% group_by(practiceid) %>% 
   summarise(rate_diabetes = diabetes_patients / total_pop)
 
-
-
 #Visualize rate of Diabetes at practice compared to others in Wales
 ggplot(data = rate_dm_practice) +
-  geom_point(mapping = aes(x = practiceid, y = rate_diabetes), colour='blue')
+  geom_bar(mapping = aes(x = practiceid, y = ..prop.., fill = practiceid))
+
+ggplot(data =  rate_dm_practice, mapping = aes(practiceid = 'W98787', 'WAL')) +
+  ggplot(data = rate_dm_practice, mapping = aes(practiceid = 'W98787'))
+  geom_bar() 
+
+ggplot(data =  rate_diabetes_practice, mapping = aes(x = 37)) + 
+ggplot(data = wales_rate_diabete, mapping = aes(x = 34.7))
+geom_bar() +
+coord_flip()
+
+ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient)) +
+geom_col() +
+scale_fill_manual(values = c('W92041' = 'blue'))
+
+
+
+
+
 
 #2(i) Compare rate of diabetes and rate of insulin prescription 
 #at practice level
@@ -344,8 +379,9 @@ diabtes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practice
 
 
 #Visualize
-ggplot(data = compare_rates) +
-  geom_point(mapping = aes(x = rate_dm_practice, y = rate_insulin), colour='blue')
+ggplot(data = diabtes_ins_rate) +
+  geom_point(mapping = aes(x = rate_diabetes, y = rate_insulin, colour='red')) +
+  geom_smooth(mapping = aes(x = rate_diabetes, y = rate_insulin, colour='blue'))
 
 
 #2(ii) Rate of Diabetes and rate of Metformin prescription
@@ -376,25 +412,10 @@ diabetes_metformin_rate <- rate_dm_practice %>% inner_join(rate_metformin,
   by=c('practiceid'))
 
 #Visualize
-ggplot(data = compare_rates) +
-  geom_point(mapping = aes(x = rate_dm_practice, y =rate_metformin), colour='blue')
+ggplot(data = diabetes_metformin_rate) +
+  geom_point(mapping = aes(x = rate_diabetes, y =rate_metformin), colour='blue') +
+  geom_smooth(mapping = aes(x = rate_diabetes, y = rate_metformin, colour='red'))
 
-
-#Round up result figures to 1 decimal place
-rate_of_metformin <- dbGetQuery(con, "
-    select practiceid, round(cast (rate_metformin_prescription as numeric), 1) as 
-       rate_of_metformin
-    from rate_metformin_prescription
-    ")
-
-#Compare rate of Diabetes and rate of Metformin prescription
-
-ggplot(data = mpg) +
-  geom_point(mapping = aes(x = displ, y = hwy))
-
-# right
-ggplot(data = mpg) +
-  geom_smooth(mapping = aes(x = rate_dm_practice, y = rate_metformin))
 
 #PART 2
 
