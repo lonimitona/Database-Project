@@ -64,7 +64,7 @@ input_practiceid <- function() {
     #Check that practice id entered by user follows the uniform pattern
     is_practiceid_valid <- str_detect(chosen_practiceid,'^W[0-9]{5}$')
     if (is_practiceid_valid ==TRUE){
-      print('Practice ID entered is correct')
+      cat(green('Practice ID entered is correct\n'))
     }else{
       cat(red('\nThis is not a Practice ID.'))
       cat(yellow('\nEnter Practice ID starting with W:\n'))
@@ -211,33 +211,33 @@ Question_1 <- function() {
   correct_practiceid <- input_practiceid()
   #Check if the practice id has medication info available
   if (has_medinfo(correct_practiceid)) {
-    print(paste(correct_practiceid, ' has medication information available'))
+    cat(magenta(correct_practiceid, ' has medication information available\n'))
   }
   else{
-    print(paste(correct_practiceid, ' does not have medication information available'))
+    cat(green(correct_practiceid, ' does not have medication information available\n'))
   }
   #Check if the practice id has QOF data available
   if (has_qofinfo(correct_practiceid)) {
-    print(paste(correct_practiceid, ' has QOF data available'))
+    cat(magenta(correct_practiceid, ' has QOF data available\n'))
   }
   else{
-    print(paste(correct_practiceid, ' does not have QOF data available'))
+    cat(green(correct_practiceid, ' does not have QOF data available\n'))
   }  
   #If practice has both medication and QOF data, then display information for practice
   if (has_medinfo(correct_practiceid) & has_qofinfo(correct_practiceid)) {
     no_of_patients <- get_no_of_patients(correct_practiceid)
-    print(paste('There are ', no_of_patients, ' patients at practice ', correct_practiceid 
-                )) 
+    cat(green('There are ', no_of_patients, ' patients at practice ', correct_practiceid, 
+        '\n')) 
     avg_spend_per_month <- get_avg_spend_per_month(correct_practiceid)
-    print(paste('The average spend on medication per month at Practice ', 
-      correct_practiceid, 'is ', avg_spend_per_month, 'pounds.')) 
+    cat(blue('The average spend on medication per month at Practice ', 
+      correct_practiceid, 'is ', avg_spend_per_month, 'pounds.\n')) 
     get_chosen_postcode(correct_practiceid)
-    print(paste('See bar chart showing amount spent on medications per patient ', 
+    cat(yellow('See bar chart showing amount spent on medications per patient ', 
                 'compared to other practices in same post code with ', 
-                correct_practiceid, '-> ' )) 
+                correct_practiceid, '-> \n' )) 
     rate_of_diabetes <- get_rate_of_diabetes(correct_practiceid)
-    print(paste(rate_of_diabetes, '% of patients at Practice ', correct_practiceid, 
-                'suffer from Diabetes.'))
+    cat(green(rate_of_diabetes, '% of patients at Practice ', correct_practiceid, 
+                'suffer from Diabetes.\n'))
   }
 }
 Question_1()
@@ -269,6 +269,23 @@ get_dm_ins_rel <- function() {
   rate_insulin <- ins_prsc %>% group_by(practiceid) %>% 
     summarise(rate_insulin = insulin_prsc / total_drugs_prescribed)
   #Compare rate of Diabetes and rate of insulin prescription
+  #Get whole population 
+  wal_qof_info <- dbGetQuery(con, "
+    select * from qof_achievement
+    ")
+  #Patients with diabetes in each practice
+  diabetes_each_practice <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
+    rename(practiceid=orgcode) %>% filter(str_detect(indicator,'^DM')) %>% 
+    group_by(practiceid) %>% summarise(diabetes_patients=sum(numerator))
+  #Get total population of patients in each practice (denominator)
+  pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+    group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
+  #Join Diabetes and total population tables
+  diabetes_pop <- diabetes_each_practice %>% full_join(pop_each_practice, 
+    by=c('practiceid'))
+  #Calculate rate of Diabetes at each practice
+  rate_dm_practice <- diabetes_pop %>% group_by(practiceid) %>% 
+    summarise(rate_diabetes = diabetes_patients / total_pop)
   #First join rate of Diabetes and rate of insulin prescription tables
   diabetes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
   #Visualize
@@ -283,7 +300,7 @@ get_dm_ins_rel <- function() {
   cat(green('The relationship between the rate of Diabetes and rate of insulin prescriptions', '\n', 
               ' was investigated using Pearson’s correlation.', '\n',
               'There was evidence (p > 0.005) to suggest that there is no statistically significant', '\n',
-              ' relationship between rate of Diabetes and rate of insulin prescriptions.'))
+              ' relationship between rate of Diabetes and rate of insulin prescriptions.\n'))
   return(rel_dm_ins)
 }
 get_dm_ins_rel()
@@ -299,7 +316,26 @@ get_dm_met_rel <- function(){
   met_prsc_each_prac <- metformin_meds %>% select(practiceid, quantity, bnfname) %>% 
     rename(met_meds=bnfname) %>% group_by(practiceid) %>% 
     summarise(met_prsc=sum(quantity))
-  
+  #Get whole population 
+  wal_qof_info <- dbGetQuery(con, "
+    select * from qof_achievement
+    ")
+  #Get total population of patients in each practice 
+  pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+    group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
+  #Diabetes at ech prectice
+  diabetes_each_practice <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
+    rename(practiceid=orgcode) %>% filter(str_detect(indicator,'^DM')) %>% 
+    group_by(practiceid) %>% summarise(diabetes_patients=sum(numerator))
+  #Diabetes population table
+  diabetes_pop <- diabetes_each_practice %>% full_join(pop_each_practice, 
+    by=c('practiceid'))
+  #Calculate total number of prescriptions per practice (denominator)
+  total_drugs_per_practice <- dbGetQuery(con, "
+    select practiceid, sum(quantity) as total_drugs_prescribed
+    from gp_data_up_to_2015 
+    group by practiceid
+    ")
   #Join metformin prescriptions and total number of prescriptions (inner join 
   #excludes practices without insulin prescription)
   met_prsc <- met_prsc_each_prac %>% inner_join(total_drugs_per_practice, 
@@ -308,6 +344,8 @@ get_dm_met_rel <- function(){
   rate_metformin <- met_prsc %>% group_by(practiceid) %>% 
     summarise(rate_metformin = met_prsc / total_drugs_prescribed)
   #Compare rate of Diabetes and rate of insulin prescription
+  rate_dm_practice <- diabetes_pop %>% group_by(practiceid) %>% 
+    summarise(rate_diabetes = diabetes_patients / total_pop)
   #First join rate of Diabetes and rate of insulin prescription tables
   diabetes_metformin_rate <- rate_dm_practice %>% inner_join(rate_metformin, 
      by=c('practiceid'))
@@ -326,7 +364,7 @@ get_dm_met_rel <- function(){
   'There was evidence (p < 0.005) to suggest that there is a statistically significant relationship', '\n',
   'between rate of Diabetes and rate of metformin prescriptions.', '\n',
   'The correlation co-efficient of 0.4032999 suggests that there is a strong positive\', \n',
-  'correlation between the rate of diabetes and rate of metformin prescription.'))
+  'correlation between the rate of diabetes and rate of metformin prescription. \n'))
   return(rel_dm_met)
 }
 get_dm_met_rel()
