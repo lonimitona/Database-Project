@@ -313,7 +313,7 @@ get_dm_met_rel <- function(){
      by=c('practiceid'))
   #Visualize
   cat(yellow('See scatterplot showing relationship between rate of diabetes',
-              'and rate of metformin prescriptions in the console -> '))
+              'and rate of metformin prescriptions in the console -> ', '\n'))
   plot(diabetes_metformin_rate$rate_diabetes, diabetes_metformin_rate$rate_metformin, 
        main='Scatterplot of Diabetes and Metformin prescription',
        xlab='Rate of Diabetes', ylab='Rate of Metformin prescription')
@@ -327,7 +327,7 @@ get_dm_met_rel <- function(){
   'between rate of Diabetes and rate of metformin prescriptions.', '\n',
   'The correlation co-efficient of 0.4032999 suggests that there is a strong positive\', \n',
   'correlation between the rate of diabetes and rate of metformin prescription.'))
-  reurn(rel_dm_met)
+  return(rel_dm_met)
 }
 get_dm_met_rel()
 
