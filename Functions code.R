@@ -272,18 +272,19 @@ get_dm_ins_rel <- function() {
   #First join rate of Diabetes and rate of insulin prescription tables
   diabetes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by=c('practiceid'))
   #Visualize
-  print(paste('See scatterplot showing relationship between rate of diabetes',
-  'and rate of insulin prescriptions in the console -> '))
+  cat(yellow('See scatterplot showing relationship between rate of diabetes',
+  'and rate of insulin prescriptions', '\n', 'in the console -> ', '\n'))
   plot(diabetes_ins_rate$rate_diabetes, diabetes_ins_rate$rate_insulin, 
        main='Scatterplot of Diabetes and Insulin prescription',
        xlab='Rate of Diabetes', ylab='Rate of Insulin prescription')
   #Test for significance using Pearson's correlation test
-  rel_dm_ins <- cor.test(diabetes_ins_rate$rate_diabetes, diabtes_ins_rate$rate_insulin)
+  rel_dm_ins <- cor.test(diabetes_ins_rate$rate_diabetes, diabetes_ins_rate$rate_insulin)
+  #Interpret result
+  cat(green('The relationship between the rate of Diabetes and rate of insulin prescriptions', '\n', 
+              ' was investigated using Pearson’s correlation.', '\n',
+              'There was evidence (p > 0.005) to suggest that there is no statistically significant', '\n',
+              ' relationship between rate of Diabetes and rate of insulin prescriptions.'))
   return(rel_dm_ins)
-  #The relationship between the rate of Diabetes and rate of insulin prescriptions
-  #was investigated using Pearson’s correlation. There was evidence 
-  #(p > 0.005) to suggest that there is no statistically significant relationship
-  #between rate of Diabetes and rate of insulin prescriptions.
 }
 get_dm_ins_rel()
 
@@ -311,7 +312,7 @@ get_dm_met_rel <- function(){
   diabetes_metformin_rate <- rate_dm_practice %>% inner_join(rate_metformin, 
      by=c('practiceid'))
   #Visualize
-  print(paste('See scatterplot showing relationship between rate of diabetes',
+  cat(yellow('See scatterplot showing relationship between rate of diabetes',
               'and rate of metformin prescriptions in the console -> '))
   plot(diabetes_metformin_rate$rate_diabetes, diabetes_metformin_rate$rate_metformin, 
        main='Scatterplot of Diabetes and Metformin prescription',
@@ -319,13 +320,14 @@ get_dm_met_rel <- function(){
   #Test for significance using Pearson's correlation test
   rel_dm_met <- cor.test(diabetes_metformin_rate$rate_diabetes, 
        diabetes_metformin_rate$rate_metformin)
-  return(rel_dm_met)
-  #The relationship between the rate of Diabetes and rate of Metformin prescriptions
-  #was investigated using Pearson’s correlation. There was evidence 
-  #(p < 0.005) to suggest that there is a statistically significant relationship
-  #between rate of Diabetes and rate of metformin prescriptions.
-  #The correlation co-efficient of 0.4032999 suggests that there is a strong positive 
-  #correlation between the rate of diabetes and rate of metformin prescription.
+  #Interpret result
+  cat(green('The relationship between the rate of Diabetes and rate of Metformin prescriptions', '\n',
+  'was investigated using Pearson’s correlation.', '\n',
+  'There was evidence (p < 0.005) to suggest that there is a statistically significant relationship', '\n',
+  'between rate of Diabetes and rate of metformin prescriptions.', '\n',
+  'The correlation co-efficient of 0.4032999 suggests that there is a strong positive\', \n',
+  'correlation between the rate of diabetes and rate of metformin prescription.'))
+  reurn(rel_dm_met)
 }
 get_dm_met_rel()
 
@@ -333,6 +335,6 @@ get_dm_met_rel()
 dbDisconnect(con)
 dbUnloadDriver(drv)
 
-cat('\nEnd of analysis. Thank you for using 2149508\'s code.\n',
+cat(green('\nEnd of analysis. Thank you for using 2149508\'s code.\n',
     'For more information, please contact 2149508 on\n',
-    '2149508@swansea.ac.uk.')
+    '2149508@swansea.ac.uk.'))
