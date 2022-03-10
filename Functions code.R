@@ -228,16 +228,20 @@ Question_1 <- function() {
     no_of_patients <- get_no_of_patients(correct_practiceid)
     cat(green('There are ', no_of_patients, ' patients at practice ', correct_practiceid, 
         '\n')) 
+    cat('\n')
     avg_spend_per_month <- get_avg_spend_per_month(correct_practiceid)
     cat(blue('The average spend on medication per month at Practice ', 
-      correct_practiceid, 'is ', avg_spend_per_month, 'pounds.\n')) 
+      correct_practiceid, 'is ', avg_spend_per_month, 'pounds.\n'))
+    cat('\n')
     get_chosen_postcode(correct_practiceid)
     cat(yellow('See bar chart showing amount spent on medications per patient ', 
                 'compared to other practices in same post code with ', 
                 correct_practiceid, '-> \n' )) 
+    cat('\n')
     rate_of_diabetes <- get_rate_of_diabetes(correct_practiceid)
     cat(green(rate_of_diabetes, '% of patients at Practice ', correct_practiceid, 
                 'suffer from Diabetes.\n'))
+    cat('\n')
   }
 }
 Question_1()
@@ -303,6 +307,7 @@ get_dm_ins_rel <- function() {
        'There was evidence (p > 0.005) to suggest that there is no statistically significant', '\n',
        ' relationship between rate of Diabetes and rate of insulin prescriptions.\n'))
   cat('\n')
+  print(rel_dm_ins)
   return(rel_dm_ins)
 }
 get_dm_ins_rel()
@@ -369,6 +374,7 @@ get_dm_met_rel <- function(){
     'The correlation co-efficient of 0.4032999 suggests that there is a strong positive\', \n',
     'correlation between the rate of diabetes and rate of metformin prescription. \n'))
   cat('\n')
+  print(rel_dm_met)
   return(rel_dm_met)
 }
 get_dm_met_rel()
