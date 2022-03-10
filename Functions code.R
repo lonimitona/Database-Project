@@ -291,6 +291,7 @@ get_dm_ins_rel <- function() {
   #Visualize
   cat(yellow('See scatterplot showing relationship between rate of diabetes',
   'and rate of insulin prescriptions', '\n', 'in the console -> ', '\n'))
+  cat('\n')
   plot(diabetes_ins_rate$rate_diabetes, diabetes_ins_rate$rate_insulin, 
        main='Scatterplot of Diabetes and Insulin prescription',
        xlab='Rate of Diabetes', ylab='Rate of Insulin prescription')
@@ -298,9 +299,10 @@ get_dm_ins_rel <- function() {
   rel_dm_ins <- cor.test(diabetes_ins_rate$rate_diabetes, diabetes_ins_rate$rate_insulin)
   #Interpret result
   cat(green('The relationship between the rate of Diabetes and rate of insulin prescriptions', '\n', 
-              ' was investigated using Pearson’s correlation.', '\n',
-              'There was evidence (p > 0.005) to suggest that there is no statistically significant', '\n',
-              ' relationship between rate of Diabetes and rate of insulin prescriptions.\n'))
+       ' was investigated using Pearson’s correlation.', '\n',
+       'There was evidence (p > 0.005) to suggest that there is no statistically significant', '\n',
+       ' relationship between rate of Diabetes and rate of insulin prescriptions.\n'))
+  cat('\n')
   return(rel_dm_ins)
 }
 get_dm_ins_rel()
@@ -352,6 +354,7 @@ get_dm_met_rel <- function(){
   #Visualize
   cat(yellow('See scatterplot showing relationship between rate of diabetes',
               'and rate of metformin prescriptions in the console -> ', '\n'))
+  cat('\n')
   plot(diabetes_metformin_rate$rate_diabetes, diabetes_metformin_rate$rate_metformin, 
        main='Scatterplot of Diabetes and Metformin prescription',
        xlab='Rate of Diabetes', ylab='Rate of Metformin prescription')
@@ -360,11 +363,12 @@ get_dm_met_rel <- function(){
        diabetes_metformin_rate$rate_metformin)
   #Interpret result
   cat(green('The relationship between the rate of Diabetes and rate of Metformin prescriptions', '\n',
-  'was investigated using Pearson’s correlation.', '\n',
-  'There was evidence (p < 0.005) to suggest that there is a statistically significant relationship', '\n',
-  'between rate of Diabetes and rate of metformin prescriptions.', '\n',
-  'The correlation co-efficient of 0.4032999 suggests that there is a strong positive\', \n',
-  'correlation between the rate of diabetes and rate of metformin prescription. \n'))
+    'was investigated using Pearson’s correlation.', '\n',
+    'There was evidence (p < 0.005) to suggest that there is a statistically significant relationship', '\n',
+    'between rate of Diabetes and rate of metformin prescriptions.', '\n',
+    'The correlation co-efficient of 0.4032999 suggests that there is a strong positive\', \n',
+    'correlation between the rate of diabetes and rate of metformin prescription. \n'))
+  cat('\n')
   return(rel_dm_met)
 }
 get_dm_met_rel()
