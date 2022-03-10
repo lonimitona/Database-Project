@@ -310,10 +310,6 @@ wal_qof_info <- dbGetQuery(con, "
     select * from qof_achievement
     ")
 
-#Calculate patients with diabetes in Wales
-wales_diabetes <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
-  filter(str_detect(indicator,'^DM')) %>% summarise(wales_diabetes=sum(numerator))
-
 #Calculate patients with diabetes in Wales (numerator)
 diabetes_each_practice <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
   rename(practiceid=orgcode) %>% filter(str_detect(indicator,'^DM')) %>% 
@@ -331,22 +327,16 @@ diabetes_pop <- diabetes_each_practice %>% full_join(pop_each_practice,
 rate_dm_practice <- diabetes_pop %>% group_by(practiceid) %>% 
   summarise(rate_diabetes = diabetes_patients / total_pop)
 
+#Write code that compares chosen practice with other practices in Wales
+wales_data <- filter(rate_dm_practice, practiceid=='WAL')
+
+barplot(height = df$df.ctrl1, df$df.avg_treated)
+?crayon
+
 #Visualize rate of Diabetes at practice compared to others in Wales
 ggplot(data = rate_dm_practice) +
   geom_bar(mapping = aes(x = practiceid, y = ..prop.., fill = practiceid))
 
-ggplot(data =  rate_dm_practice, mapping = aes(practiceid = 'W98787', 'WAL')) +
-  ggplot(data = rate_dm_practice, mapping = aes(practiceid = 'W98787'))
-  geom_bar() 
-
-ggplot(data =  rate_diabetes_practice, mapping = aes(x = 37)) + 
-ggplot(data = wales_rate_diabete, mapping = aes(x = 34.7))
-geom_bar() +
-coord_flip()
-
-ggplot(data = mppsp, mapping = aes(x = practiceid, y = amt_per_patient)) +
-geom_col() +
-scale_fill_manual(values = c('W92041' = 'blue'))
 
 
 
@@ -454,8 +444,57 @@ rel_dm_met
 
 #PART 2
 
+heart_failure_pop <- dbGetQuery(con, "
+ select * from qof_achievement
+ where indicator like 'HF%' 
+ ")
+
+hf_each_practice <- heart_failure_pop %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>% group_by(practiceid) %>% 
+  summarise(hf_patients=sum(numerator))
+
+#Get total population of patients in each practice (denominator)
+pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+  group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
+
+hf_pop <- hf_each_practice %>% full_join(pop_each_practice, 
+                                                     by=c('practiceid'))
+
+rate_hf <- hf_pop %>% group_by(practiceid) %>% 
+  summarise(rate_hf = hf_patients / total_pop)
+
+obesity <- dbGetQuery(con, "
+ select * from qof_achievement
+ where indicator like 'OB%' 
+ ")
+
+ob_each_practice <- obesity %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>% group_by(practiceid) %>% 
+  summarise(ob_patients=sum(numerator))
+
+ob_pop <- ob_each_practice %>% inner_join(pop_each_practice, 
+                                         by=c('practiceid'))
+
+rate_ob <- ob_pop %>% group_by(practiceid) %>% 
+  summarise(rate_ob = ob_patients / total_pop)
 
 
+hf_ob_rate <- rate_hf %>% inner_join(rate_ob, by=c('practiceid'))
+
+plot(hf_ob_rate$rate_ob, hf_ob_rate$rate_hf, 
+     main='Scatterplot of Heart Failure and Obesity',
+     xlab='Rate of Obesity', ylab='Rate of Heart Failure')
+
+rel_ob_hf <- cor.test(hf_ob_rate$rate_ob, 
+                      hf_ob_rate$rate_hf)
+rel_ob_hf
+
+
+
+dbGetQuery(con, "
+select * from qof_achievement
+where indicator like 'SMO%';
+")
 
 # Close the connection and unload the drivers.
 dbDisconnect(con)
