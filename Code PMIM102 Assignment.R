@@ -93,7 +93,8 @@ has_medinfo <- function(chosen_practiceid) {
 #Create function to check if practice has qof info
 has_qofinfo <- function(chosen_practiceid) {
  qof_info <- dbGetQuery(con, qq("
-    select * from qof_achievement
+    select * 
+    from qof_achievement
     where orgcode = \'@{chosen_practiceid}\'"))
   has_qofinformation <- FALSE
   if (count(qof_info) > 0){
@@ -106,7 +107,8 @@ has_qofinfo <- function(chosen_practiceid) {
 #Create function to get no of patients
 get_no_of_patients <- function(chosen_practiceid) {
   qof_info <- dbGetQuery(con, qq('
-    select * from qof_achievement
+    select * 
+    from qof_achievement
     where orgcode = \'@{chosen_practiceid}\''))
   #Calculate no of patients at Practice
   no_of_patients <- qof_info %>% rename(practiceid=orgcode, 
@@ -118,7 +120,8 @@ get_no_of_patients <- function(chosen_practiceid) {
 #Create function to get average cost per month
 get_avg_spend_per_month <- function(chosen_practiceid){
   med_info <- dbGetQuery(con, qq('
-    select * from gp_data_up_to_2015
+    select * 
+    from gp_data_up_to_2015
     where practiceid = \'@{chosen_practiceid}\''))
   #Use ymd() from lubridate package to sort the date column
   med_cost <- med_info %>% select(period, actcost) %>% rename(month=period) %>% 
@@ -146,7 +149,8 @@ get_avg_spend_per_month <- function(chosen_practiceid){
 get_chosen_postcode <- function(chosen_practiceid){
   #Get population of all patients
   wal_qof_info <- dbGetQuery(con, "
-    select * from qof_achievement
+    select * 
+    from qof_achievement
     ")
   #Get total population of patients in each practice 
   pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
@@ -188,7 +192,8 @@ get_chosen_postcode <- function(chosen_practiceid){
 #Create function to report rate of diabetes at practice
 get_rate_of_diabetes <- function(chosen_practiceid){
   qof_info <- dbGetQuery(con, qq('
-    select * from qof_achievement
+    select * 
+    from qof_achievement
     where orgcode = \'@{chosen_practiceid}\''))
   patients_with_diabetes <- qof_info %>% select(orgcode, indicator, numerator) %>% 
     filter(str_detect(indicator,'^DM')) %>% 
@@ -254,7 +259,8 @@ Question_1()
 #in Wales
 get_dm_ins_rel <- function() {
   insulin_meds <- dbGetQuery(con, "
-    select * from gp_data_up_to_2015
+    select * 
+    from gp_data_up_to_2015
     where bnfcode like '060101%'
     ")
   insulin_meds
@@ -277,7 +283,8 @@ get_dm_ins_rel <- function() {
   #Compare rate of Diabetes and rate of insulin prescription
   #Get whole population 
   wal_qof_info <- dbGetQuery(con, "
-    select * from qof_achievement
+    select * 
+    from qof_achievement
     ")
   #Patients with diabetes in each practice
   diabetes_each_practice <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
@@ -318,7 +325,8 @@ get_dm_ins_rel()
 #in Wales
 get_dm_met_rel <- function(){
   metformin_meds <- dbGetQuery(con, "
-    select * from gp_data_up_to_2015
+    select * 
+    from gp_data_up_to_2015
     where lower (bnfname) like 'metformin%' 
     ")
   #Calculate metformin prescription each practice (numerator)
@@ -327,7 +335,8 @@ get_dm_met_rel <- function(){
     summarise(met_prsc=sum(quantity))
   #Get whole population 
   wal_qof_info <- dbGetQuery(con, "
-    select * from qof_achievement
+    select * 
+    from qof_achievement
     ")
   #Get total population of patients in each practice 
   pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
