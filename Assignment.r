@@ -459,7 +459,6 @@ asthma_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>%
   group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
   add_column(area='Asthma')
 
-
 cancer_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
   rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^CAN')) %>%
   group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
@@ -535,11 +534,22 @@ ra_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>%
   group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
   add_column(area='Rheumatoid Arthritis')
 
+smoking_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^SMO')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Smoking')
+
 stia_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
   rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^STIA')) %>%
   group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
   add_column(area='Stroke and Transient Ischaemic Attacks')
 
+
+#Combining the dataframes
+disease_pop <- rbind(af_patients, asthma_patients, cancer_patients, chd_patients, copd_patients, 
+      dementia_patients, depression_patients, diabetes_patients, epilepsy_patients, hf_patients, 
+      hypertension_patients, ld_patients, mh_patients, obesity_patients, ost_patients, 
+      pad_patients, ra_patients, smoking_patients, stia_patients)
 
 # Close the connection and unload the drivers.
 dbDisconnect(con)
