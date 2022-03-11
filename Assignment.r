@@ -444,57 +444,102 @@ rel_dm_met
 
 #PART 2
 
-heart_failure_pop <- dbGetQuery(con, "
+pop_of_wales <- dbGetQuery(con, "
  select * from qof_achievement
- where indicator like 'HF%' 
+ where orgcode like 'WAL%' 
  ")
 
-hf_each_practice <- heart_failure_pop %>% select(orgcode, indicator, numerator) %>% 
-  rename(practiceid=orgcode) %>% group_by(practiceid) %>% 
-  summarise(hf_patients=sum(numerator))
-
-#Get total population of patients in each practice (denominator)
-pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
-  group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
-
-hf_pop <- hf_each_practice %>% full_join(pop_each_practice, 
-                                                     by=c('practiceid'))
-
-rate_hf <- hf_pop %>% group_by(practiceid) %>% 
-  summarise(rate_hf = hf_patients / total_pop)
-
-obesity <- dbGetQuery(con, "
- select * from qof_achievement
- where indicator like 'OB%' 
- ")
-
-ob_each_practice <- obesity %>% select(orgcode, indicator, numerator) %>% 
-  rename(practiceid=orgcode) %>% group_by(practiceid) %>% 
-  summarise(ob_patients=sum(numerator))
-
-ob_pop <- ob_each_practice %>% inner_join(pop_each_practice, 
-                                         by=c('practiceid'))
-
-rate_ob <- ob_pop %>% group_by(practiceid) %>% 
-  summarise(rate_ob = ob_patients / total_pop)
+af_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^AF')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Atrial Fibrillation')
+  
+asthma_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^AST')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Asthma')
 
 
-hf_ob_rate <- rate_hf %>% inner_join(rate_ob, by=c('practiceid'))
+cancer_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^CAN')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Cancer')
 
-plot(hf_ob_rate$rate_ob, hf_ob_rate$rate_hf, 
-     main='Scatterplot of Heart Failure and Obesity',
-     xlab='Rate of Obesity', ylab='Rate of Heart Failure')
+chd_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^CHD')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Coronary Heart Disease')
 
-rel_ob_hf <- cor.test(hf_ob_rate$rate_ob, 
-                      hf_ob_rate$rate_hf)
-rel_ob_hf
+copd_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^COPD')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Chronic Obstructive Pulmonary Disease')
+    
+dementia_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^DEM')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Dementia')
 
+depression_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^DEP')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Depression')
 
+diabetes_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^DM')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Diabetes Mellitus')
 
-dbGetQuery(con, "
-select * from qof_achievement
-where indicator like 'SMO%';
-")
+epilepsy_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^EP')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Epilepsy')
+
+hf_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^HF')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Heart Failure')
+
+hypertension_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^HYP')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Hypertension')
+
+ld_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^LD')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Learning Disabilities')
+
+mh_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^MH')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Mental Health')
+ 
+obesity_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^OB')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Obesity')
+
+ost_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^OST')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Osteoporosis')
+
+pad_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^PAD')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Peripheral Arterial Disease')
+
+ra_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^RA')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Rheumatoid Arthritis')
+
+stia_patients <- pop_of_wales %>% select(orgcode, indicator, numerator) %>% 
+  rename(practiceid=orgcode) %>%  filter(str_detect(indicator,'^STIA')) %>%
+  group_by(practiceid) %>% summarise(patients=sum(numerator)) %>% 
+  add_column(area='Stroke and Transient Ischaemic Attacks')
+
 
 # Close the connection and unload the drivers.
 dbDisconnect(con)
