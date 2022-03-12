@@ -9,16 +9,14 @@
 #Make sure the RPostgreSQL package is available.
 library("RPostgreSQL")
 
-#Access Tidyverse library
-library(tidyverse)
+library(tidyverse)  #Access Tidyverse library
 
 library(crayon)     #For coloured console text.
 
 # For 'qq()' which allows substitution of vars in strings.
 library(GetoptLong)
 
-#
-library(lubridate)
+library(lubridate)  #To manipulate date and time data
 
 #Specify what driver is needed to connect to the database.
 drv = dbDriver("PostgreSQL")
@@ -67,7 +65,7 @@ input_practiceid <- function() {
     if (is_practiceid_valid ==TRUE){
       cat(green('Practice ID entered is correct\n'))
     }else{
-      cat(red('\nThis is not a Practice ID.'))
+      cat(red('\nThis is not a valid Practice ID.'))
       cat(yellow('\nEnter Practice ID starting with W:\n'))
     } 
   }
@@ -185,9 +183,9 @@ get_chosen_postcode <- function(chosen_practiceid){
   chosen_postcode <- amt_meds_per_patient %>% filter(str_detect(postcode, string_pattern)) 
   #Visualization showing cost of medication per patient compared to other
   #practices within same postcode area
-  ggplot(data = chosen_postcode) + geom_bar(mapping = aes(x = practiceid, 
-     fill = chosen_practiceid))
+  print(chosen_postcode)
 }
+get_chosen_postcode()
 
 #Create function to report rate of diabetes at practice
 get_rate_of_diabetes <- function(chosen_practiceid){
@@ -241,9 +239,10 @@ Question_1 <- function() {
       correct_practiceid, 'is ', avg_spend_per_month, 'pounds.\n'))
     cat('\n')
     get_chosen_postcode(correct_practiceid)
-    cat(yellow('See bar chart showing amount spent on medications per patient ', 
+    cat('\n')
+    cat(yellow('The table above shows the amount spent on medications per patient ', 
                 'compared to other practices in same post code with ', 
-                correct_practiceid, '-> \n' )) 
+                correct_practiceid, '\n' )) 
     cat('\n')
     rate_of_diabetes <- get_rate_of_diabetes(correct_practiceid)
     cat(green(rate_of_diabetes, '% of patients at Practice ', correct_practiceid, 
