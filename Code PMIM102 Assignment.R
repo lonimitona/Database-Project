@@ -211,7 +211,32 @@ get_rate_of_diabetes <- function(chosen_practiceid){
   return(rate_diabetes_practice)
 }
 
-
+#Create function to get rate of diabetes at practice compared to others in Wales
+get_comparison_practice_others <- function(chosen_practiceid){
+  #Get population of practices in Wales
+  wal_qof_info <- dbGetQuery(con, "
+    select * from qof_achievement
+    ")
+  #Calculate patients with diabetes in Wales (numerator)
+  diabetes_each_practice <- wal_qof_info %>% select(orgcode, indicator, numerator) %>% 
+    rename(practiceid=orgcode) %>% filter(str_detect(indicator,'^DM')) %>% 
+    group_by(practiceid) %>% summarise(diabetes_patients=sum(numerator))
+  #Get total population of patients in each practice (denominator)
+  pop_each_practice <- wal_qof_info %>% rename(practiceid=orgcode, no_of_patients=field4) %>%
+    group_by(practiceid) %>% summarise(total_pop=max(no_of_patients))
+  #Join Diabetes and total population tables
+  diabetes_pop <- diabetes_each_practice %>% full_join(pop_each_practice, 
+      by=c('practiceid'))
+  #Calculate rate of Diabetes at each practice
+  rate_dm_practice <- diabetes_pop %>% group_by(practiceid) %>% 
+    summarise(rate_diabetes = diabetes_patients / total_pop)
+  #Select the chosen practice and other practices Wales 
+  filter <- rate_dm_practice %>% filter(practiceid == 'WAL'| practiceid == chosen_practiceid)
+  #Visualize rate of Diabetes at practice compared to others in Wales
+  dm_wales_other_practices_graph <- ggplot(filter, aes(x = rate_diabetes, y = practiceid, 
+      fill = practiceid)) + geom_col()
+  return(dm_wales_other_practices_graph)
+}
 
 #Putting it all together
 Question_1 <- function() {
@@ -256,6 +281,10 @@ Question_1 <- function() {
     cat(green(rate_of_diabetes, '% of patients at Practice ', correct_practiceid, 
                 'suffer from Diabetes.\n'))
     cat('\n')
+    get_comparison_practice_others(correct_practiceid)
+    cat('\n')
+    cat(cyan('See barchart showing the rate of Diabetes in  ', correct_practiceid,
+             ' compared to other practices in Wales ->  \n' ))
   }
 }
 Question_1()
