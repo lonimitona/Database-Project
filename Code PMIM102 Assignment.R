@@ -19,7 +19,7 @@ library(GetoptLong)
 library(lubridate)  #To manipulate date and time data
 
 #Specify what driver is needed to connect to the database.
-drv = dbDriver("PostgreSQL")
+drv <-  dbDriver("PostgreSQL")
 
 #Connect to the database for the assignment.
 con <- dbConnect(drv, dbname = "gp_practice_data", 
@@ -169,9 +169,9 @@ get_chosen_postcode <- function(chosen_practiceid){
   #merge postcode table with medication and population table
   meds_postcode <- postcode %>% inner_join(meds_pop, by = c('practiceid'))
   #Calculate amount spent on medication per patient
-  amt_meds_per_patient <- meds_postcode %>% 
-    mutate(meds_per_patient=total_costs/total_pop)
-  #
+  amt_on_meds_per_patient <- meds_postcode %>% 
+    mutate(spend_per_patient=total_costs/total_pop)
+  #Filter to return only postcode of the chosen practiceid
   one_postcode<- filter(meds_postcode, practiceid == chosen_practiceid)
   #Bring out value of postcode from the column
   pc_code <- one_postcode$postcode[1]
@@ -180,12 +180,14 @@ get_chosen_postcode <- function(chosen_practiceid){
   #Select just first 2 letters of postcode
   string_pattern <- str_interp('^${digits}')
   #Select practices sharing same postcode with user's chosen practice
-  chosen_postcode <- amt_meds_per_patient %>% filter(str_detect(postcode, string_pattern)) 
-  chosen_postcode
+  chosen_postcode <- amt_on_meds_per_patient %>% filter(str_detect(postcode, string_pattern)) 
+  print(chosen_postcode)
   #Visualization showing cost of medication per patient compared to other
   #practices within same postcode area
-  ggplot(data = chosen_postcode) + geom_bar(mapping = aes(x = practiceid, 
-  fill = chosen_practiceid))
+  postcode_barchart <- ggplot(data = chosen_postcode) + geom_col(mapping = aes(x = spend_per_patient, 
+      y = practiceid, fill = practiceid == chosen_practiceid))
+  print(postcode_barchart)
+  return(postcode_barchart)
 }
 
 
@@ -242,9 +244,13 @@ Question_1 <- function() {
     cat('\n')
     get_chosen_postcode(correct_practiceid)
     cat('\n')
-    cat(yellow('The table above shows the amount spent on medications per patient ', 
-                'compared to other practices in same post code with ', 
-                correct_practiceid, '\n' )) 
+    cat(cyan('The table above displays the amount spent on medications per patient ', 
+               'compared to other practices in the same post code with ', 
+               correct_practiceid, '\n' ))
+    cat('\n')
+    cat(yellow('See barchart showing the amount spent on medications per patient ', 
+                'compared to other practices in the same post code with ', 
+                correct_practiceid, ' ->\n' )) 
     cat('\n')
     rate_of_diabetes <- get_rate_of_diabetes(correct_practiceid)
     cat(green(rate_of_diabetes, '% of patients at Practice ', correct_practiceid, 
@@ -303,8 +309,8 @@ get_dm_ins_rel <- function() {
   #First join rate of Diabetes and rate of insulin prescription tables
   diabetes_ins_rate <- rate_dm_practice %>% inner_join(rate_insulin, by = c('practiceid'))
   #Visualize
-  cat(yellow('See scatterplot showing relationship between rate of diabetes',
-  'and rate of insulin prescriptions', '\n', 'in the console -> ', '\n'))
+  cat(yellow('See scatterplot showing the relationship between rate of diabetes',
+  'and rate of insulin prescriptions -> ', '\n'))
   cat('\n')
   plot(diabetes_ins_rate$rate_diabetes, diabetes_ins_rate$rate_insulin, 
        main = 'Scatterplot of Diabetes and Insulin prescription',
@@ -369,8 +375,8 @@ get_dm_met_rel <- function(){
   diabetes_metformin_rate <- rate_dm_practice %>% inner_join(rate_metformin, 
      by = c('practiceid'))
   #Visualize
-  cat(yellow('See scatterplot showing relationship between rate of diabetes',
-              'and rate of metformin prescriptions in the console -> ', '\n'))
+  cat(yellow('See scatterplot showing the relationship between rate of diabetes',
+              'and rate of metformin prescriptions -> ', '\n'))
   cat('\n')
   plot(diabetes_metformin_rate$rate_diabetes, diabetes_metformin_rate$rate_metformin, 
        main = 'Scatterplot of Diabetes and Metformin prescription',
@@ -383,7 +389,7 @@ get_dm_met_rel <- function(){
     'was investigated using Pearson’s correlation.', '\n',
     'There was evidence (p < 0.005) to suggest that there is a statistically significant relationship', '\n',
     'between rate of Diabetes and rate of metformin prescriptions.', '\n',
-    'The correlation co-efficient of 0.4032999 suggests that there is a strong positive\', \n',
+    'The correlation co-efficient of 0.4032999 suggests that there is a moderately positive\', \n',
     'correlation between the rate of diabetes and rate of metformin prescription. \n'))
   cat('\n')
   print(rel_dm_met)
