@@ -235,6 +235,7 @@ get_comparison_practice_others <- function(chosen_practiceid){
   #Visualize rate of Diabetes at practice compared to others in Wales
   dm_wales_other_practices_graph <- ggplot(filter, aes(x = rate_diabetes, y = practiceid, 
       fill = practiceid)) + geom_col()
+  print(dm_wales_other_practices_graph)
   return(dm_wales_other_practices_graph)
 }
 
@@ -283,8 +284,9 @@ Question_1 <- function() {
     cat('\n')
     get_comparison_practice_others(correct_practiceid)
     cat('\n')
-    cat(cyan('See barchart showing the rate of Diabetes in  ', correct_practiceid,
-             ' compared to other practices in Wales ->  \n' ))
+    cat(magenta('See barchart showing the rate of Diabetes in ', correct_practiceid,
+                ' compared to other practices in Wales ->  \n' ))
+    cat('\n')
   }
 }
 Question_1()
